@@ -28,18 +28,14 @@ const Playbook = () => {
               </div>
             </div>
             <nav className="flex items-center gap-1">
-              <NavLink
-                to="/"
-                className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Shield className="h-3.5 w-3.5" /> THREAT FEED
-                </span>
+              <NavLink to="/" className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary">
+                <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> THREATS</span>
+              </NavLink>
+              <NavLink to="/alerts" className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary">
+                <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> XDR ALERTS</span>
               </NavLink>
               <span className="px-3 py-1.5 text-xs font-mono text-primary bg-primary/10 rounded-md border border-primary/20">
-                <span className="flex items-center gap-1.5">
-                  <BookOpen className="h-3.5 w-3.5" /> PLAYBOOKS
-                </span>
+                <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> PLAYBOOKS</span>
               </span>
             </nav>
           </div>
