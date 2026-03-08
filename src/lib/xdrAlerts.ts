@@ -4814,6 +4814,1812 @@ AADSignInEventsBeta
     defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
     relatedAlerts: ["appgov-001", "entra-003"],
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE DEFENDER FOR ENDPOINT (MDE) — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "mde-041",
+    title: "Suspicious csc.exe compilation",
+    alertId: "SuspiciousCscCompilation",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Execution",
+    mitreTactic: "Execution",
+    mitreTechnique: "Command and Scripting Interpreter",
+    mitreId: "T1059",
+    description: "The C# compiler (csc.exe) was invoked from a suspicious context, potentially compiling and executing malicious code on the fly to evade signature-based detection.",
+    investigationSteps: [
+      "Review the csc.exe command line and source file location",
+      "Check the parent process that invoked csc.exe",
+      "Examine the compiled output for malicious behavior",
+      "Verify if any legitimate .NET application triggered compilation",
+      "Review DeviceProcessEvents for post-compilation execution",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName =~ "csc.exe"
+| where InitiatingProcessFileName !in~ ("msbuild.exe","devenv.exe","w3wp.exe","dotnet.exe")
+| project Timestamp, DeviceName, ProcessCommandLine, InitiatingProcessFileName, AccountName`,
+    responseActions: [
+      "Terminate any compiled malicious processes",
+      "Delete the source .cs files and compiled output",
+      "Block the parent process hash if malicious",
+      "Monitor for repeated compilation attempts",
+      "Apply ASR rules to restrict csc.exe invocation",
+    ],
+    falsePositiveGuidance: ".NET applications, Visual Studio builds, and ASP.NET runtime compilation use csc.exe. Focus on unexpected parent processes and temp directory sources.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-010", "mde-013"],
+  },
+  {
+    id: "mde-042",
+    title: "Suspicious use of Windows Remote Management (WinRM)",
+    alertId: "SuspiciousWinRM",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Lateral Movement",
+    mitreTactic: "Lateral Movement",
+    mitreTechnique: "Remote Services: Windows Remote Management",
+    mitreId: "T1021.006",
+    description: "WinRM was used to execute commands remotely on another endpoint, potentially as part of lateral movement. Attackers leverage WinRM for fileless remote execution.",
+    investigationSteps: [
+      "Identify the source and destination devices",
+      "Review the commands executed via WinRM",
+      "Check if the source account normally uses WinRM",
+      "Look for Invoke-Command, Enter-PSSession, or wsmprovhost.exe",
+      "Correlate with other lateral movement indicators",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName =~ "wsmprovhost.exe"
+| project Timestamp, DeviceName, ProcessCommandLine, AccountName, InitiatingProcessFileName
+| order by Timestamp desc`,
+    responseActions: [
+      "Verify the WinRM usage with the account owner",
+      "If unauthorized, disable WinRM on non-admin devices",
+      "Restrict WinRM access via GPO to specific admin workstations",
+      "Reset the credentials of the remote account",
+      "Review all commands executed during the session",
+    ],
+    falsePositiveGuidance: "IT administrators use WinRM for remote management, DSC configurations, and automation. Verify with the IT operations team.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-005", "mde-010"],
+  },
+  {
+    id: "mde-043",
+    title: "Suspicious MSBuild execution",
+    alertId: "SuspiciousMSBuild",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Trusted Developer Utilities Proxy Execution: MSBuild",
+    mitreId: "T1127.001",
+    description: "MSBuild.exe was used to compile and execute inline C# tasks from a project file, a technique used to bypass application whitelisting and execute arbitrary code.",
+    investigationSteps: [
+      "Review the MSBuild command line and project file",
+      "Check if a .csproj or .xml file contains inline tasks",
+      "Verify if this is a legitimate build operation",
+      "Review the contents of the project file for malicious code",
+      "Check DeviceFileEvents for the project file creation",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName =~ "MSBuild.exe"
+| where InitiatingProcessFileName !in~ ("devenv.exe","cmd.exe","explorer.exe")
+| project Timestamp, DeviceName, ProcessCommandLine, InitiatingProcessFileName, AccountName`,
+    responseActions: [
+      "Terminate the MSBuild process",
+      "Delete the malicious project file",
+      "Block execution of MSBuild from non-development paths",
+      "Apply ASR rules for MSBuild restrictions",
+      "Scan the device for additional compromise",
+    ],
+    falsePositiveGuidance: "Developers and CI/CD pipelines legitimately use MSBuild. Focus on non-development machines and unusual project file locations.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-041", "mde-013"],
+  },
+  {
+    id: "mde-044",
+    title: "Suspicious regsvr32 proxy execution",
+    alertId: "SuspiciousRegsvr32",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "System Binary Proxy Execution: Regsvr32",
+    mitreId: "T1218.010",
+    description: "Regsvr32.exe was used with /s /n /u /i flags to execute scriptlets (.sct) or remote payloads, bypassing application control policies (Squiblydoo attack).",
+    investigationSteps: [
+      "Review the regsvr32 command line for /i:http or .sct references",
+      "Check if a remote URL was used to load a scriptlet",
+      "Identify the parent process",
+      "Check for post-execution activity (child processes, network)",
+      "Review if COM objects were registered from unusual paths",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName =~ "regsvr32.exe"
+| where ProcessCommandLine has_any ("/i:http", ".sct", "scrobj.dll", "/s /n /u /i")
+| project Timestamp, DeviceName, ProcessCommandLine, InitiatingProcessFileName, AccountName`,
+    responseActions: [
+      "Terminate the regsvr32 process",
+      "Block the source URL",
+      "Remove any registered malicious COM objects",
+      "Apply ASR rules for regsvr32 restrictions",
+      "Scan the device for additional compromise",
+    ],
+    falsePositiveGuidance: "Legitimate DLL/OCX registration uses regsvr32 but rarely with /i:http or .sct files. Any remote scriptlet execution is highly suspicious.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-035", "mde-013"],
+  },
+  {
+    id: "mde-045",
+    title: "Suspicious wscript/cscript execution",
+    alertId: "SuspiciousWScript",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Execution",
+    mitreTactic: "Execution",
+    mitreTechnique: "Command and Scripting Interpreter: Visual Basic",
+    mitreId: "T1059.005",
+    description: "Windows Script Host (wscript.exe/cscript.exe) executed a VBScript or JScript file from a suspicious location, potentially delivering a malware dropper or downloader.",
+    investigationSteps: [
+      "Review the script file path and contents",
+      "Check if the script was delivered via email or download",
+      "Identify the parent process (explorer.exe from double-click, cmd.exe, etc.)",
+      "Check for network connections initiated by the script",
+      "Review if the script drops or downloads additional files",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName in~ ("wscript.exe", "cscript.exe")
+| where ProcessCommandLine has_any ("\\Temp\\", "\\Downloads\\", "\\AppData\\", "http")
+| project Timestamp, DeviceName, ProcessCommandLine, InitiatingProcessFileName, AccountName`,
+    responseActions: [
+      "Terminate the script execution",
+      "Delete the malicious script file",
+      "Block wscript/cscript via ASR rules if not needed",
+      "Check for dropped payloads",
+      "Scan the device for malware",
+    ],
+    falsePositiveGuidance: "Some legacy login scripts and IT automation use WSH. Verify with IT operations. Modern environments should migrate away from WSH.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-010", "mde-013"],
+  },
+  {
+    id: "mde-046",
+    title: "Potential webshell detected on server",
+    alertId: "WebshellDetected",
+    component: "Defender for Endpoint",
+    severity: "critical",
+    category: "Persistence",
+    mitreTactic: "Persistence",
+    mitreTechnique: "Server Software Component: Web Shell",
+    mitreId: "T1505.003",
+    description: "A potential webshell was detected on a web server — a script file (ASPX, PHP, JSP) placed in a web-accessible directory that provides remote command execution.",
+    investigationSteps: [
+      "Identify the webshell file path and contents",
+      "Check which web application process created the file",
+      "Review IIS/Apache access logs for webshell requests",
+      "Check for vulnerability exploitation that led to webshell deployment",
+      "Review network connections from the web server process",
+    ],
+    kqlQuery: `DeviceFileEvents
+| where Timestamp > ago(7d)
+| where FolderPath has_any ("\\inetpub\\wwwroot", "\\www\\", "\\htdocs\\")
+| where FileName endswith ".aspx" or FileName endswith ".asp" or FileName endswith ".php" or FileName endswith ".jsp"
+| where InitiatingProcessFileName in~ ("w3wp.exe", "httpd.exe", "java.exe")
+| project Timestamp, DeviceName, FileName, FolderPath, InitiatingProcessFileName, SHA256`,
+    responseActions: [
+      "Remove the webshell file immediately",
+      "Patch the vulnerability that allowed webshell deployment",
+      "Review all files in web directories for additional shells",
+      "Check for data exfiltration via the webshell",
+      "Rotate all credentials accessible from the web server",
+      "Deploy web application firewall (WAF) rules",
+    ],
+    falsePositiveGuidance: "Legitimate web deployments create files in web directories. Check if the file was deployed through your CI/CD pipeline or CMS.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-011", "mdc-009"],
+  },
+  {
+    id: "mde-047",
+    title: "Brute force attack against RDP",
+    alertId: "RDPBruteForce",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Brute Force",
+    mitreId: "T1110",
+    description: "Multiple failed RDP login attempts were detected against an endpoint, indicating a brute force or password spraying attack targeting Remote Desktop Protocol.",
+    investigationSteps: [
+      "Review the source IPs and geographic locations",
+      "Check the targeted accounts",
+      "Verify if any login attempts succeeded",
+      "Check if the device's RDP port is exposed to the internet",
+      "Review Network Security Group or firewall rules",
+    ],
+    kqlQuery: `DeviceLogonEvents
+| where Timestamp > ago(24h)
+| where LogonType == "RemoteInteractive"
+| where ActionType == "LogonFailed"
+| summarize FailedAttempts=count(), UniqueAccounts=dcount(AccountName) by DeviceName, RemoteIP, bin(Timestamp, 1h)
+| where FailedAttempts > 10
+| order by FailedAttempts desc`,
+    responseActions: [
+      "Block the attacking source IPs",
+      "Disable RDP access from the internet",
+      "Implement Network Level Authentication (NLA)",
+      "Deploy Azure AD Application Proxy or VPN for remote access",
+      "Enable account lockout policies",
+      "Check for successful logins from the same source",
+    ],
+    falsePositiveGuidance: "Users forgetting passwords or using old cached credentials. Check if the source IP belongs to your organization.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-005", "entra-002"],
+  },
+  {
+    id: "mde-048",
+    title: "Suspicious WDAC/AppLocker bypass attempt",
+    alertId: "AppControlBypass",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Subvert Trust Controls",
+    mitreId: "T1553",
+    description: "An attempt to bypass Windows Defender Application Control (WDAC) or AppLocker was detected using LOLBins, DLL side-loading, or other bypass techniques.",
+    investigationSteps: [
+      "Review the blocked or flagged execution attempt",
+      "Identify the bypass technique used",
+      "Check if a legitimate application needs a policy exception",
+      "Review the WDAC/AppLocker event logs",
+      "Assess the policy gaps that allowed the attempt",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(7d)
+| where ActionType in ("AppControlCodeIntegrityPolicyAudited", "AppControlCodeIntegrityPolicyBlocked")
+| project Timestamp, DeviceName, FileName, FolderPath, ProcessCommandLine, ActionType`,
+    responseActions: [
+      "Review and update WDAC/AppLocker policies",
+      "Block the bypass technique via supplemental policy",
+      "Investigate the source of the bypass attempt",
+      "Monitor for additional evasion techniques",
+      "Consider deploying managed installer policies",
+    ],
+    falsePositiveGuidance: "New software deployments may trigger WDAC audit events. Review with the software deployment team.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-008", "mde-013"],
+  },
+  {
+    id: "mde-049",
+    title: "Ransomware-related network encryption traffic",
+    alertId: "RansomwareNetworkEncryption",
+    component: "Defender for Endpoint",
+    severity: "critical",
+    category: "Impact",
+    mitreTactic: "Impact",
+    mitreTechnique: "Data Encrypted for Impact",
+    mitreId: "T1486",
+    description: "Network traffic patterns consistent with ransomware encryption were detected — rapid SMB file operations across multiple network shares indicating remote encryption of shared files.",
+    investigationSteps: [
+      "Identify the source device performing remote encryption",
+      "Review SMB file operations across network shares",
+      "Check for ransom notes on network shares",
+      "Identify the encryption file extension",
+      "Determine the scope of encrypted shares",
+    ],
+    kqlQuery: `DeviceFileEvents
+| where Timestamp > ago(1h)
+| where ActionType in ("FileModified", "FileRenamed")
+| where FolderPath startswith "\\\\"
+| summarize FileCount=count(), UniqueExtensions=dcount(tostring(split(FileName, ".")[-1])) by DeviceName, bin(Timestamp, 5m)
+| where FileCount > 100
+| order by FileCount desc`,
+    responseActions: [
+      "IMMEDIATELY isolate the source device from the network",
+      "Disable the compromised account in AD",
+      "Identify and block the ransomware process",
+      "Disconnect affected network shares",
+      "Initiate ransomware incident response plan",
+      "Notify executive team and legal",
+    ],
+    falsePositiveGuidance: "Legitimate bulk file operations (migration, backup) may trigger this. Verify the process and timing with IT operations.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-001", "mde-036"],
+  },
+  {
+    id: "mde-050",
+    title: "Suspicious DNS tunneling detected",
+    alertId: "DNSTunneling",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Command and Control",
+    mitreTactic: "Command and Control",
+    mitreTechnique: "Application Layer Protocol: DNS",
+    mitreId: "T1071.004",
+    description: "DNS traffic patterns indicate potential DNS tunneling — encoding data within DNS queries to bypass network security controls for C2 communication or data exfiltration.",
+    investigationSteps: [
+      "Review the DNS query patterns (high entropy, long subdomain names)",
+      "Identify the queried domain and authoritative nameserver",
+      "Check the query volume and frequency",
+      "Verify if the domain is known malicious",
+      "Identify the process making the DNS queries",
+    ],
+    kqlQuery: `DeviceNetworkEvents
+| where Timestamp > ago(24h)
+| where ActionType == "DnsQueryResponse"
+| where RemoteUrl has "." and strlen(RemoteUrl) > 50
+| summarize QueryCount=count(), AvgLength=avg(strlen(RemoteUrl)) by DeviceName, tostring(split(RemoteUrl, ".")[-2]) 
+| where QueryCount > 100 and AvgLength > 40`,
+    responseActions: [
+      "Block the tunneling domain at DNS level",
+      "Isolate the affected device",
+      "Identify and terminate the tunneling process",
+      "Deploy DNS Security Extensions (DNSSEC)",
+      "Implement DNS query logging and monitoring",
+    ],
+    falsePositiveGuidance: "CDN services, DKIM verification, and some SaaS applications generate long DNS queries. Check the domain reputation.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-017", "mde-009"],
+  },
+  {
+    id: "mde-051",
+    title: "Potential rootkit detected",
+    alertId: "RootkitDetected",
+    component: "Defender for Endpoint",
+    severity: "critical",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Rootkit",
+    mitreId: "T1014",
+    description: "Behavior consistent with rootkit activity was detected — hidden processes, concealed files, or kernel-level hooks that indicate deep system compromise.",
+    investigationSteps: [
+      "Run offline scan using Defender Offline",
+      "Check for hidden processes, files, and registry keys",
+      "Review loaded kernel drivers for unsigned or suspicious entries",
+      "Compare running services with expected baseline",
+      "Check boot sector integrity",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(7d)
+| where ActionType in ("DriverLoaded", "KernelModeDriverLoaded")
+| where AdditionalFields has "unsigned" or AdditionalFields has "revoked"
+| project Timestamp, DeviceName, FileName, FolderPath, SHA256, AdditionalFields`,
+    responseActions: [
+      "Take the device offline immediately",
+      "Perform offline AV scan from clean boot media",
+      "If rootkit confirmed, consider reimaging the device",
+      "Preserve forensic image before remediation",
+      "Reset all credentials used on the device",
+      "Review all devices that communicated with the infected machine",
+    ],
+    falsePositiveGuidance: "Some hardware monitoring tools and anticheat software install kernel drivers. Verify driver signatures and publishers.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-024", "mde-008"],
+  },
+  {
+    id: "mde-052",
+    title: "Clipboard data theft detected",
+    alertId: "ClipboardTheft",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Collection",
+    mitreTactic: "Collection",
+    mitreTechnique: "Clipboard Data",
+    mitreId: "T1115",
+    description: "A process was detected continuously monitoring or harvesting clipboard contents, potentially capturing passwords, cryptocurrency addresses, or sensitive data copied by the user.",
+    investigationSteps: [
+      "Identify the process accessing clipboard APIs",
+      "Review how frequently clipboard data is being accessed",
+      "Check if the process is a known clipboard manager",
+      "Look for clipboard data being written to files or sent over network",
+      "Review the process origin and installation method",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(24h)
+| where ActionType == "ClipboardRead" or ActionType has "Clipboard"
+| summarize ReadCount=count() by InitiatingProcessFileName, DeviceName, bin(Timestamp, 1h)
+| where ReadCount > 50
+| order by ReadCount desc`,
+    responseActions: [
+      "Terminate the clipboard monitoring process",
+      "Remove the associated malware",
+      "Advise the user to change any passwords copied recently",
+      "Check cryptocurrency wallet transactions if applicable",
+      "Scan for keylogger components",
+    ],
+    falsePositiveGuidance: "Clipboard managers (Ditto, ClipboardFusion), password managers, and RDP sessions access the clipboard. Verify with software inventory.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-025", "mde-027"],
+  },
+  {
+    id: "mde-053",
+    title: "Suspicious email client access by unusual process",
+    alertId: "EmailClientAccess",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Collection",
+    mitreTactic: "Collection",
+    mitreTechnique: "Email Collection: Local Email Collection",
+    mitreId: "T1114.001",
+    description: "A non-email process was detected accessing Outlook data files (.ost/.pst) or email client databases, potentially for email collection and exfiltration.",
+    investigationSteps: [
+      "Identify the process accessing email data files",
+      "Check if the process is a backup or migration tool",
+      "Review the file operations performed on email data",
+      "Check for subsequent data compression or exfiltration",
+      "Verify the legitimacy of the accessing process",
+    ],
+    kqlQuery: `DeviceFileEvents
+| where Timestamp > ago(24h)
+| where FileName endswith ".ost" or FileName endswith ".pst"
+| where InitiatingProcessFileName !in~ ("outlook.exe", "OUTLOOK.EXE", "SearchIndexer.exe")
+| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ActionType, FolderPath`,
+    responseActions: [
+      "Terminate the suspicious process",
+      "Check if email data was copied or compressed",
+      "Look for data exfiltration of the email archive",
+      "Scan the device for information-stealing malware",
+      "Review DLP policies for email data protection",
+    ],
+    falsePositiveGuidance: "Email migration tools, backup software, and eDiscovery agents access email files. Verify with IT operations.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-025", "purview-001"],
+  },
+  {
+    id: "mde-054",
+    title: "Suspicious keylogging activity detected",
+    alertId: "KeyloggingDetected",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Collection",
+    mitreTactic: "Collection",
+    mitreTechnique: "Input Capture: Keylogging",
+    mitreId: "T1056.001",
+    description: "A process was detected using keyboard hooking APIs or input capture techniques consistent with keylogger behavior to record keystrokes.",
+    investigationSteps: [
+      "Identify the process using keyboard hooks (SetWindowsHookEx, GetAsyncKeyState)",
+      "Check if the process is a known accessibility or input tool",
+      "Review if captured data is being logged to a file",
+      "Look for exfiltration of captured keystroke data",
+      "Check the process origin and installation vector",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(24h)
+| where ActionType has_any ("KeyboardHook", "InputCapture", "SetWindowsHookEx")
+| project Timestamp, DeviceName, InitiatingProcessFileName, ActionType, AdditionalFields`,
+    responseActions: [
+      "Terminate the keylogging process immediately",
+      "Remove the associated malware",
+      "Have the user change ALL passwords entered since compromise",
+      "Check for credential exfiltration",
+      "Run full device scan",
+    ],
+    falsePositiveGuidance: "Accessibility tools, input method editors (IMEs), and some game software use keyboard hooks. Verify against known software.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-052", "mde-027"],
+  },
+  {
+    id: "mde-055",
+    title: "Suspicious screen capture activity",
+    alertId: "ScreenCaptureDetected",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Collection",
+    mitreTactic: "Collection",
+    mitreTechnique: "Screen Capture",
+    mitreId: "T1113",
+    description: "A process was detected performing repeated screen captures, potentially to collect sensitive information displayed on the user's screen.",
+    investigationSteps: [
+      "Identify the process performing screen captures",
+      "Check the frequency and destination of captured images",
+      "Verify if the process is a known screenshot tool",
+      "Look for exfiltration of captured screenshots",
+      "Review the process installation method",
+    ],
+    kqlQuery: `DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where ProcessCommandLine has_any ("screenshot", "PrintScreen", "CopyFromScreen", "BitBlt")
+| project Timestamp, DeviceName, FileName, ProcessCommandLine, AccountName`,
+    responseActions: [
+      "Terminate the screen capture process",
+      "Remove the associated malware",
+      "Check for stored screenshots and their exfiltration",
+      "Scan the device for other spyware components",
+      "Review DLP policies for screen capture prevention",
+    ],
+    falsePositiveGuidance: "Collaboration tools (Teams, Zoom), snipping tools, and documentation software capture screens. Verify with the user and software inventory.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-054", "mde-052"],
+  },
+  {
+    id: "mde-056",
+    title: "System firmware modification attempt",
+    alertId: "FirmwareModification",
+    component: "Defender for Endpoint",
+    severity: "critical",
+    category: "Persistence",
+    mitreTactic: "Persistence",
+    mitreTechnique: "Pre-OS Boot: UEFI Firmware",
+    mitreId: "T1542.001",
+    description: "An attempt to modify UEFI/BIOS firmware was detected, potentially indicating a firmware-level implant that persists across OS reinstallation.",
+    investigationSteps: [
+      "Review the firmware modification tool and method",
+      "Check if this is a legitimate firmware update",
+      "Verify the firmware integrity using CHIPSEC or similar",
+      "Review if Secure Boot is enabled and intact",
+      "Check for any firmware vulnerabilities on the device model",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(7d)
+| where ActionType has_any ("FirmwareModified", "UEFIModification")
+| project Timestamp, DeviceName, ActionType, AdditionalFields, InitiatingProcessFileName`,
+    responseActions: [
+      "Isolate the device immediately",
+      "Verify firmware integrity with manufacturer tools",
+      "Reflash firmware from known-good image if compromised",
+      "Enable Secure Boot and firmware password",
+      "Preserve the device for forensic analysis",
+      "Report to hardware vendor if firmware implant confirmed",
+    ],
+    falsePositiveGuidance: "Legitimate BIOS/UEFI updates from Dell, HP, Lenovo management tools. Verify with IT hardware management.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-051", "mde-024"],
+  },
+  {
+    id: "mde-057",
+    title: "Archive bomb or decompression bomb detected",
+    alertId: "ArchiveBomb",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Obfuscated Files or Information",
+    mitreId: "T1027",
+    description: "A compressed archive was detected that expands to an extremely large size (zip bomb/decompression bomb), designed to crash antivirus scanners or fill disk space.",
+    investigationSteps: [
+      "Identify the archive file and its source (email, download)",
+      "Check the compressed vs. expanded size ratio",
+      "Verify if any AV scan was disrupted by the archive",
+      "Check if the archive was deliberately sent to the user",
+      "Review if disk space was significantly consumed",
+    ],
+    kqlQuery: `DeviceFileEvents
+| where Timestamp > ago(24h)
+| where FileName endswith ".zip" or FileName endswith ".7z" or FileName endswith ".rar"
+| where FileSize < 1000000 // Less than 1MB compressed
+| project Timestamp, DeviceName, FileName, FileSize, FolderPath, InitiatingProcessFileName`,
+    responseActions: [
+      "Delete the archive bomb",
+      "Block the sender/source",
+      "Check AV scanner health on the device",
+      "Free disk space if it was consumed",
+      "Update email security policies to block suspicious archives",
+    ],
+    falsePositiveGuidance: "Highly compressed legitimate files with repetitive data (logs, databases) can have high compression ratios. Check the source.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mdo-002", "mde-003"],
+  },
+  {
+    id: "mde-058",
+    title: "AMSI bypass attempt detected",
+    alertId: "AMSIBypass",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Impair Defenses: Disable or Modify Tools",
+    mitreId: "T1562.001",
+    description: "An attempt to bypass the Antimalware Scan Interface (AMSI) was detected, likely to execute malicious scripts without being scanned by security software.",
+    investigationSteps: [
+      "Review the AMSI bypass technique used (memory patching, reflection)",
+      "Identify the script or process attempting the bypass",
+      "Check for subsequent malicious script execution",
+      "Review PowerShell script block logs for obfuscated content",
+      "Verify if security tools detected the bypass attempt",
+    ],
+    kqlQuery: `DeviceEvents
+| where Timestamp > ago(24h)
+| where ActionType == "AmsiBypassDetected" or AdditionalFields has "AMSI"
+| project Timestamp, DeviceName, InitiatingProcessFileName, ProcessCommandLine, AdditionalFields
+| order by Timestamp desc`,
+    responseActions: [
+      "Terminate the process attempting AMSI bypass",
+      "Block the script hash",
+      "Enable constrained language mode for PowerShell",
+      "Review and enable all ASR rules",
+      "Check for post-bypass malicious activity",
+    ],
+    falsePositiveGuidance: "Some penetration testing tools and security assessments may trigger AMSI bypass detections. Verify with the security team's schedule.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-008", "mde-010"],
+  },
+  {
+    id: "mde-059",
+    title: "Suspicious outbound data transfer",
+    alertId: "OutboundDataTransfer",
+    component: "Defender for Endpoint",
+    severity: "high",
+    category: "Exfiltration",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over C2 Channel",
+    mitreId: "T1041",
+    description: "Unusually large outbound data transfers were detected from an endpoint, potentially indicating data exfiltration over command and control channels or direct upload to attacker infrastructure.",
+    investigationSteps: [
+      "Review the destination IPs/domains and data volume",
+      "Identify the process responsible for the transfer",
+      "Check if the destination is a known cloud service or unknown",
+      "Review the timing (business hours vs. off-hours)",
+      "Correlate with DLP alerts for sensitive data classification",
+    ],
+    kqlQuery: `DeviceNetworkEvents
+| where Timestamp > ago(24h)
+| where ActionType == "ConnectionSuccess"
+| where RemoteIPType == "Public"
+| summarize TotalBytes=sum(SentBytes), ConnectionCount=count() by DeviceName, RemoteIP, RemoteUrl, InitiatingProcessFileName, bin(Timestamp, 1h)
+| where TotalBytes > 100000000 // More than 100MB
+| order by TotalBytes desc`,
+    responseActions: [
+      "Block the destination IP/domain",
+      "Isolate the device if exfiltration confirmed",
+      "Identify what data was transferred",
+      "Notify the data owner and compliance team",
+      "Implement network DLP for large transfers",
+      "Review firewall egress rules",
+    ],
+    falsePositiveGuidance: "Cloud backups, software updates, and large file uploads for business purposes. Check the destination and process.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mde-017", "purview-005"],
+  },
+  {
+    id: "mde-060",
+    title: "Phishing site accessed from endpoint",
+    alertId: "PhishingSiteAccessed",
+    component: "Defender for Endpoint",
+    severity: "medium",
+    category: "Initial Access",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Phishing: Spearphishing Link",
+    mitreId: "T1566.002",
+    description: "A user navigated to a known or newly-detected phishing website that mimics a legitimate login page to steal credentials.",
+    investigationSteps: [
+      "Check if the user entered credentials on the phishing page",
+      "Review the referrer — was this from an email link?",
+      "Identify the legitimate service being impersonated",
+      "Check SmartScreen and web content filtering logs",
+      "Review if the URL was reported by Microsoft threat intelligence",
+    ],
+    kqlQuery: `DeviceNetworkEvents
+| where Timestamp > ago(24h)
+| where ActionType == "SmartScreenUrlWarning" or ActionType == "NetworkProtectionUrlWarning"
+| project Timestamp, DeviceName, RemoteUrl, InitiatingProcessFileName, AccountName`,
+    responseActions: [
+      "If credentials were entered, reset the user's password immediately",
+      "Revoke active sessions for the user",
+      "Report the phishing URL to Microsoft and hosting provider",
+      "Block the URL/domain at proxy level",
+      "Check if other users visited the same URL",
+    ],
+    falsePositiveGuidance: "Newly registered legitimate domains or domains with poor reputation may trigger warnings. Verify the site content.",
+    defenderPortalPath: "security.microsoft.com → Incidents & alerts → Alerts",
+    relatedAlerts: ["mdo-003", "mdo-001"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE DEFENDER FOR OFFICE 365 (MDO) — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "mdo-016",
+    title: "Callback phishing email detected",
+    alertId: "CallbackPhishing",
+    component: "Defender for Office 365",
+    severity: "high",
+    category: "Phishing",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Phishing: Spearphishing Voice",
+    mitreId: "T1566.004",
+    description: "A callback phishing (vishing) email was detected — instructs the recipient to call a fraudulent phone number, typically impersonating a subscription renewal or invoice.",
+    investigationSteps: [
+      "Review the email content for phone numbers",
+      "Check if the phone number is associated with known scams",
+      "Identify if any users called the number",
+      "Review similar emails sent to other users",
+      "Check the sender reputation and domain age",
+    ],
+    kqlQuery: `EmailEvents
+| where Timestamp > ago(7d)
+| where Subject has_any ("subscription", "renewal", "invoice", "payment", "cancel")
+| where EmailDirection == "Inbound"
+| where SenderFromDomain !in~ ("microsoft.com", "apple.com", "google.com")
+| project Timestamp, SenderFromAddress, RecipientEmailAddress, Subject, DeliveryAction`,
+    responseActions: [
+      "Purge the phishing email from all mailboxes",
+      "Block the sender address and domain",
+      "Alert users who received the email not to call the number",
+      "Report the phone number to carriers and FTC",
+      "Update anti-phishing policies for callback phishing patterns",
+    ],
+    falsePositiveGuidance: "Legitimate subscription renewals and invoices may contain callback numbers. Check sender authenticity and domain age.",
+    defenderPortalPath: "security.microsoft.com → Email & collaboration → Explorer",
+    relatedAlerts: ["mdo-001", "mdo-006"],
+  },
+  {
+    id: "mdo-017",
+    title: "Suspicious email sent from internal compromised account",
+    alertId: "InternalCompromisedSender",
+    component: "Defender for Office 365",
+    severity: "critical",
+    category: "Social Engineering",
+    mitreTactic: "Lateral Movement",
+    mitreTechnique: "Internal Spearphishing",
+    mitreId: "T1534",
+    description: "An internal email account is sending suspicious emails to colleagues — may contain phishing links, malware attachments, or fraudulent requests indicating account compromise.",
+    investigationSteps: [
+      "Review the emails sent by the compromised account",
+      "Check the account's recent sign-in activity for anomalies",
+      "Verify inbox rules created on the account",
+      "Review if the account was accessed from unusual IPs",
+      "Check for OAuth app consents on the account",
+    ],
+    kqlQuery: `EmailEvents
+| where Timestamp > ago(24h)
+| where SenderFromAddress =~ "<compromised_user>"
+| where EmailDirection == "Intra-org" or EmailDirection == "Outbound"
+| project Timestamp, SenderFromAddress, RecipientEmailAddress, Subject, DeliveryAction, ThreatTypes`,
+    responseActions: [
+      "Disable the compromised account immediately",
+      "Reset the account password and revoke all sessions",
+      "Purge all suspicious emails sent by the account",
+      "Notify all recipients of the malicious emails",
+      "Remove any malicious inbox rules",
+      "Re-enable account with MFA enforced",
+    ],
+    falsePositiveGuidance: "Auto-replies, legitimate mass communications, and newsletter forwarding may appear suspicious. Verify the email content.",
+    defenderPortalPath: "security.microsoft.com → Email & collaboration → Explorer",
+    relatedAlerts: ["mdo-009", "mdo-006"],
+  },
+  {
+    id: "mdo-018",
+    title: "DMARC policy violation — spoofed email delivered",
+    alertId: "DMARCViolation",
+    component: "Defender for Office 365",
+    severity: "medium",
+    category: "Phishing",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Phishing",
+    mitreId: "T1566",
+    description: "An email that failed DMARC authentication was delivered to user mailboxes, indicating a potential spoofing attack impersonating a trusted domain.",
+    investigationSteps: [
+      "Review the email authentication results (SPF, DKIM, DMARC)",
+      "Check the spoofed domain and actual sending infrastructure",
+      "Verify if the sender domain has a proper DMARC policy",
+      "Check if the email was delivered due to an override",
+      "Review the email content for phishing indicators",
+    ],
+    kqlQuery: `EmailEvents
+| where Timestamp > ago(7d)
+| where AuthenticationDetails has "dmarc=fail"
+| where DeliveryAction == "Delivered"
+| project Timestamp, SenderFromAddress, SenderMailFromAddress, RecipientEmailAddress, Subject, AuthenticationDetails`,
+    responseActions: [
+      "Review and tighten anti-spoofing policies",
+      "Contact the spoofed domain owner about DMARC enforcement",
+      "Purge spoofed emails if malicious",
+      "Implement spoof intelligence in EOP",
+      "Consider rejecting DMARC failures for high-value domains",
+    ],
+    falsePositiveGuidance: "Third-party email services (marketing tools, CRM) may send on behalf of your domain without proper DMARC alignment. Work with the sending service.",
+    defenderPortalPath: "security.microsoft.com → Email & collaboration → Policies",
+    relatedAlerts: ["mdo-005", "mdo-001"],
+  },
+  {
+    id: "mdo-019",
+    title: "Suspicious attachment type blocked by Safe Attachments",
+    alertId: "SafeAttachmentsBlock",
+    component: "Defender for Office 365",
+    severity: "medium",
+    category: "Malware",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Phishing: Spearphishing Attachment",
+    mitreId: "T1566.001",
+    description: "Safe Attachments detonation identified a malicious attachment and blocked it before delivery. The attachment exhibited malicious behavior during sandbox analysis.",
+    investigationSteps: [
+      "Review the Safe Attachments detonation verdict",
+      "Check what malicious behavior was observed in the sandbox",
+      "Identify the sender and target recipients",
+      "Review if similar attachments were sent to other users",
+      "Check for any pre-detonation delivery (Dynamic Delivery)",
+    ],
+    kqlQuery: `EmailAttachmentInfo
+| where Timestamp > ago(7d)
+| join kind=inner EmailEvents on NetworkMessageId
+| where ThreatTypes has "Malware"
+| where DeliveryAction in ("Blocked", "Replaced")
+| project Timestamp, SenderFromAddress, RecipientEmailAddress, FileName, FileType, ThreatNames, DeliveryAction`,
+    responseActions: [
+      "Confirm the email was successfully blocked",
+      "Block the sender if malicious",
+      "Submit the attachment hash to threat intelligence",
+      "Check if any users received the attachment via Dynamic Delivery",
+      "Update Safe Attachments policy if needed",
+    ],
+    falsePositiveGuidance: "Complex macros and automated documents may trigger Safe Attachments. Submit false positives via Threat Explorer.",
+    defenderPortalPath: "security.microsoft.com → Email & collaboration → Explorer",
+    relatedAlerts: ["mdo-002", "mdo-012"],
+  },
+  {
+    id: "mdo-020",
+    title: "Suspicious link rewritten by Safe Links",
+    alertId: "SafeLinksRewrite",
+    component: "Defender for Office 365",
+    severity: "low",
+    category: "Phishing",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Phishing: Spearphishing Link",
+    mitreId: "T1566.002",
+    description: "A URL in an email was rewritten by Safe Links for time-of-click protection. The URL was flagged as suspicious during initial or deferred analysis.",
+    investigationSteps: [
+      "Review the original URL and its reputation",
+      "Check if any users clicked the URL",
+      "Verify the click verdict (allowed, blocked, pending)",
+      "Review the URL redirect chain",
+      "Check if the domain was recently registered",
+    ],
+    kqlQuery: `UrlClickEvents
+| where Timestamp > ago(7d)
+| where ActionType in ("ClickBlocked", "ClickAllowed")
+| where IsClickedThrough == true
+| project Timestamp, AccountUpn, Url, ActionType, NetworkMessageId, IsClickedThrough`,
+    responseActions: [
+      "Block the URL if confirmed malicious",
+      "Notify users who clicked through the warning",
+      "If credentials were entered, reset passwords",
+      "Review Safe Links click-through policies",
+      "Submit the URL for re-scan if verdict is wrong",
+    ],
+    falsePositiveGuidance: "New or uncommon URLs may be flagged. URL shorteners and redirect services may also trigger. Verify the final destination.",
+    defenderPortalPath: "security.microsoft.com → Email & collaboration → URL trace",
+    relatedAlerts: ["mdo-003", "mdo-001"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE DEFENDER FOR IDENTITY (MDI) — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "mdi-019",
+    title: "Suspicious AD group modification",
+    alertId: "ADGroupModification",
+    component: "Defender for Identity",
+    severity: "high",
+    category: "Privilege Escalation",
+    mitreTactic: "Privilege Escalation",
+    mitreTechnique: "Account Manipulation",
+    mitreId: "T1098",
+    description: "A sensitive Active Directory security group (Domain Admins, Enterprise Admins, Schema Admins) was modified — a member was added or the group's permissions were changed.",
+    investigationSteps: [
+      "Identify which group was modified and what changed",
+      "Verify who made the modification",
+      "Check if the change was authorized via change management",
+      "Review the added account's normal permissions",
+      "Check for subsequent use of elevated privileges",
+    ],
+    kqlQuery: `IdentityDirectoryEvents
+| where Timestamp > ago(7d)
+| where ActionType == "Group Membership changed"
+| where TargetAccountDisplayName has_any ("Domain Admins", "Enterprise Admins", "Schema Admins", "Account Operators", "Backup Operators")
+| project Timestamp, AccountName, ActionType, TargetAccountDisplayName, AdditionalFields`,
+    responseActions: [
+      "Revert unauthorized group membership changes",
+      "Review the modifying account for compromise",
+      "Implement AD change monitoring alerts",
+      "Require multi-person approval for privileged group changes",
+      "Enable AD tiering model for privileged access",
+    ],
+    falsePositiveGuidance: "Legitimate admin onboarding and role changes modify groups. Verify with change management tickets.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["mdi-005", "entra-009"],
+  },
+  {
+    id: "mdi-020",
+    title: "NTLM relay attack detected",
+    alertId: "NTLMRelay",
+    component: "Defender for Identity",
+    severity: "critical",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay",
+    mitreId: "T1557.001",
+    description: "NTLM relay attack was detected where captured NTLM authentication was relayed to another service to gain unauthorized access without cracking the password.",
+    investigationSteps: [
+      "Identify the relay source and target servers",
+      "Check for LLMNR/NBT-NS poisoning preceding the relay",
+      "Verify which account's authentication was relayed",
+      "Review if EPA (Extended Protection for Authentication) is enabled",
+      "Check for successful authentication at the relay target",
+    ],
+    kqlQuery: `IdentityLogonEvents
+| where Timestamp > ago(24h)
+| where Protocol == "NTLM"
+| where AdditionalFields has "relay"
+| project Timestamp, AccountName, DeviceName, DestinationDeviceName, IPAddress, Protocol, AdditionalFields`,
+    responseActions: [
+      "Enable EPA on all services (LDAP signing, SMB signing)",
+      "Disable LLMNR and NBT-NS via Group Policy",
+      "Enable NTLM audit mode to identify NTLM usage",
+      "Migrate services from NTLM to Kerberos",
+      "Implement network segmentation",
+      "Reset credentials for relayed accounts",
+    ],
+    falsePositiveGuidance: "Rare in properly configured environments. Legacy devices or misconfigured services may generate similar patterns.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["mdi-016", "mdi-001"],
+  },
+  {
+    id: "mdi-021",
+    title: "Honeytoken account activity detected",
+    alertId: "HoneytokenActivity",
+    component: "Defender for Identity",
+    severity: "critical",
+    category: "Discovery",
+    mitreTactic: "Discovery",
+    mitreTechnique: "Account Discovery",
+    mitreId: "T1087",
+    description: "Activity was detected on a honeytoken account — a decoy account that should never be used. Any authentication or query against this account indicates active reconnaissance or compromise.",
+    investigationSteps: [
+      "Identify the source device and IP that used the honeytoken",
+      "Review the type of activity (logon attempt, LDAP query)",
+      "Check if the activity came from an internal or external source",
+      "Correlate with other alerts from the same source",
+      "Determine if an attacker is performing AD enumeration",
+    ],
+    kqlQuery: `IdentityLogonEvents
+| where Timestamp > ago(24h)
+| where AccountName =~ "<honeytoken_account>"
+| project Timestamp, AccountName, DeviceName, IPAddress, Protocol, LogonType, ActionType`,
+    responseActions: [
+      "Investigate the source device immediately",
+      "Check for AD enumeration tools on the source",
+      "Isolate the source device if compromise confirmed",
+      "Review all accounts accessed from the same source",
+      "Update honeytoken strategy if it was discovered",
+    ],
+    falsePositiveGuidance: "Honeytoken accounts should never be used. Any activity is suspicious by design. Only exclude known security testing.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["mdi-014", "mdi-015"],
+  },
+  {
+    id: "mdi-022",
+    title: "SID-History injection attack detected",
+    alertId: "SIDHistoryInjection",
+    component: "Defender for Identity",
+    severity: "critical",
+    category: "Privilege Escalation",
+    mitreTactic: "Privilege Escalation",
+    mitreTechnique: "Access Token Manipulation: SID-History Injection",
+    mitreId: "T1134.005",
+    description: "SID-History attribute was injected on a user account, granting the privileges of another account (potentially a Domain Admin) without being a member of privileged groups.",
+    investigationSteps: [
+      "Identify the account with modified SID-History",
+      "Review which SIDs were added to the attribute",
+      "Determine if the added SIDs belong to privileged accounts",
+      "Check who modified the SID-History attribute",
+      "Verify if this is related to a domain migration",
+    ],
+    kqlQuery: `IdentityDirectoryEvents
+| where Timestamp > ago(7d)
+| where ActionType == "Account SID History changed"
+| project Timestamp, AccountName, TargetAccountDisplayName, AdditionalFields, DeviceName`,
+    responseActions: [
+      "Remove the injected SID-History entries",
+      "Review the modifying account for compromise",
+      "Enable SID Filtering on all trusts",
+      "Reset the affected account credentials",
+      "Monitor for re-injection attempts",
+    ],
+    falsePositiveGuidance: "Domain migrations legitimately use SID-History. Verify with the AD migration team and change management.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["mdi-013", "mdi-017"],
+  },
+  {
+    id: "mdi-023",
+    title: "Password spray against domain accounts",
+    alertId: "PasswordSprayDomain",
+    component: "Defender for Identity",
+    severity: "high",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Brute Force: Password Spraying",
+    mitreId: "T1110.003",
+    description: "A password spray attack was detected against Active Directory — a small number of common passwords tried against many accounts to avoid account lockout.",
+    investigationSteps: [
+      "Review the source IP and device",
+      "Check how many accounts were targeted",
+      "Verify if any authentication succeeded",
+      "Review the passwords attempted (if logged)",
+      "Check for subsequent lateral movement from successful logins",
+    ],
+    kqlQuery: `IdentityLogonEvents
+| where Timestamp > ago(24h)
+| where ActionType == "LogonFailed"
+| summarize FailedAttempts=count(), UniqueAccounts=dcount(AccountName) by DeviceName, IPAddress, bin(Timestamp, 1h)
+| where UniqueAccounts > 10 and FailedAttempts > 20
+| order by UniqueAccounts desc`,
+    responseActions: [
+      "Block the source IP if external",
+      "Isolate the source device if internal",
+      "Reset passwords for any accounts that authenticated successfully",
+      "Implement smart lockout policies",
+      "Deploy Azure AD Password Protection to block common passwords",
+      "Enable MFA for all users",
+    ],
+    falsePositiveGuidance: "Misconfigured service accounts with old passwords can generate widespread failures. Check for service account patterns.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["entra-002", "mde-047"],
+  },
+  {
+    id: "mdi-024",
+    title: "Suspected Skeleton Key attack on domain controller",
+    alertId: "SkeletonKeyAttack",
+    component: "Defender for Identity",
+    severity: "critical",
+    category: "Persistence",
+    mitreTactic: "Persistence",
+    mitreTechnique: "Modify Authentication Process",
+    mitreId: "T1556",
+    description: "Defender for Identity detected behavior consistent with a Skeleton Key implant on a domain controller — a memory-resident patch that allows authentication with a master password.",
+    investigationSteps: [
+      "Check the domain controller for memory anomalies",
+      "Review LSASS process on the DC for injected modules",
+      "Verify all DC logins for the attacker's master password",
+      "Check if the DC was recently patched or rebooted",
+      "Review DC replication for anomalies",
+    ],
+    kqlQuery: `IdentityLogonEvents
+| where Timestamp > ago(24h)
+| where DestinationDeviceName endswith "DC" // Adjust for your naming
+| where Protocol == "Kerberos"
+| where AdditionalFields has "SkeletonKey"
+| project Timestamp, AccountName, DeviceName, DestinationDeviceName, AdditionalFields`,
+    responseActions: [
+      "Reboot the affected domain controller immediately (clears memory implant)",
+      "Reset ALL domain account passwords including KRBTGT",
+      "Verify all DCs for the same implant",
+      "Implement memory integrity protections on DCs",
+      "Restrict physical and remote access to DCs",
+      "Deploy enhanced DC monitoring",
+    ],
+    falsePositiveGuidance: "Extremely rare false positive. Any detection should be treated as critical and investigated immediately.",
+    defenderPortalPath: "security.microsoft.com → Identities",
+    relatedAlerts: ["mdi-013", "mdi-017"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE DEFENDER FOR CLOUD APPS (MCAS) — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "mcas-011",
+    title: "Shadow IT — Unsanctioned cloud app usage",
+    alertId: "ShadowITDetection",
+    component: "Defender for Cloud Apps",
+    severity: "medium",
+    category: "Discovery",
+    mitreTactic: "Discovery",
+    mitreTechnique: "Cloud Service Discovery",
+    mitreId: "T1580",
+    description: "Users are actively using unsanctioned cloud applications that haven't been approved by the organization, creating data security and compliance risks.",
+    investigationSteps: [
+      "Review the discovered cloud application details",
+      "Check how many users are using the application",
+      "Assess the risk score of the application",
+      "Review what data is being uploaded to the app",
+      "Determine if there's an approved alternative",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(30d)
+| where Application !in~ ("Microsoft 365", "Azure", "Salesforce") // Adjust for your sanctioned apps
+| summarize UserCount=dcount(AccountDisplayName), EventCount=count() by Application
+| where UserCount > 5
+| order by UserCount desc`,
+    responseActions: [
+      "Evaluate the app for sanctioning or blocking",
+      "Block the app if it poses unacceptable risk",
+      "Offer approved alternatives to users",
+      "Implement session controls for risky apps",
+      "Update acceptable use policies",
+    ],
+    falsePositiveGuidance: "Some cloud apps are used by specific departments for valid business purposes. Check with department heads before blocking.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → Cloud app catalog",
+    relatedAlerts: ["mcas-001", "mcas-002"],
+  },
+  {
+    id: "mcas-012",
+    title: "Suspicious file sharing with personal email",
+    alertId: "PersonalEmailSharing",
+    component: "Defender for Cloud Apps",
+    severity: "medium",
+    category: "Exfiltration",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over Web Service",
+    mitreId: "T1567",
+    description: "Corporate files were shared externally with personal email addresses (gmail.com, outlook.com, yahoo.com), bypassing corporate data loss prevention controls.",
+    investigationSteps: [
+      "Review the files shared and their sensitivity classification",
+      "Identify the personal email recipients",
+      "Check if the user has a pattern of sharing to personal emails",
+      "Verify if the sharing was for legitimate business purposes",
+      "Review the file contents for sensitive data",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(7d)
+| where ActionType in ("SharingSet", "SharingInvitationCreated")
+| where RawEventData has_any ("gmail.com", "outlook.com", "yahoo.com", "hotmail.com", "aol.com")
+| project Timestamp, AccountDisplayName, ActionType, ObjectName, RawEventData`,
+    responseActions: [
+      "Revoke external sharing for the files",
+      "Notify the user's manager about the policy violation",
+      "Apply DLP policies to block sharing with personal emails",
+      "Implement conditional access for external sharing",
+      "Review if the data needs additional sensitivity labeling",
+    ],
+    falsePositiveGuidance: "Users may share with personal emails for legitimate reasons (personal backup, working from personal device). Verify the business justification.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → Activity log",
+    relatedAlerts: ["purview-004", "mcas-006"],
+  },
+  {
+    id: "mcas-013",
+    title: "Suspicious activity from TOR exit node",
+    alertId: "TORExitNode",
+    component: "Defender for Cloud Apps",
+    severity: "high",
+    category: "Initial Access",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Valid Accounts",
+    mitreId: "T1078",
+    description: "A user authenticated to a cloud application from a TOR exit node IP address, indicating the user is anonymizing their connection — common for attackers hiding their origin.",
+    investigationSteps: [
+      "Verify with the user if they intentionally used TOR",
+      "Check the sign-in risk level in Azure AD",
+      "Review what actions were performed during the session",
+      "Check for other anomalous sign-ins for the same account",
+      "Review if the account was recently compromised",
+    ],
+    kqlQuery: `AADSignInEventsBeta
+| where Timestamp > ago(24h)
+| where IPAddress in (externaldata(IP:string)[@"https://check.torproject.org/torbulkexitlist"])
+| project Timestamp, AccountUpn, IPAddress, Application, RiskLevelDuringSignIn`,
+    responseActions: [
+      "Block the session immediately",
+      "Reset the user's password",
+      "Require MFA re-authentication",
+      "Block TOR exit nodes via conditional access named locations",
+      "Review all actions performed during the session",
+    ],
+    falsePositiveGuidance: "Privacy-conscious users or users in censored regions may use TOR. Verify with the user and assess organizational policy.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → Activity log",
+    relatedAlerts: ["entra-001", "mcas-008"],
+  },
+  {
+    id: "mcas-014",
+    title: "Suspicious Teams/SharePoint admin activity",
+    alertId: "SuspiciousTeamsAdmin",
+    component: "Defender for Cloud Apps",
+    severity: "high",
+    category: "Privilege Escalation",
+    mitreTactic: "Privilege Escalation",
+    mitreTechnique: "Valid Accounts: Cloud Accounts",
+    mitreId: "T1078.004",
+    description: "Suspicious administrative actions were detected in Microsoft Teams or SharePoint — modifying sharing policies, creating external access permissions, or changing org-wide settings.",
+    investigationSteps: [
+      "Review the specific admin actions performed",
+      "Verify the admin account that made the changes",
+      "Check if the changes weaken security posture",
+      "Review the admin's recent sign-in activity",
+      "Confirm the changes with the IT governance team",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(24h)
+| where Application in ("Microsoft Teams", "Microsoft SharePoint Online")
+| where ActionType has_any ("Set-SPOTenant", "Set-CsTeamsClientConfiguration", "SharingPolicyChanged")
+| project Timestamp, AccountDisplayName, ActionType, RawEventData, IPAddress`,
+    responseActions: [
+      "Revert unauthorized policy changes immediately",
+      "Review the admin account for compromise",
+      "Implement approval workflows for Teams/SharePoint admin changes",
+      "Enable audit alerts for admin configuration changes",
+      "Review all Teams and SharePoint admin roles",
+    ],
+    falsePositiveGuidance: "Planned configuration changes by IT admins. Verify against change management tickets.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → Activity log",
+    relatedAlerts: ["mcas-010", "entra-010"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE DEFENDER FOR CLOUD (MDC) — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "mdc-011",
+    title: "Virtual machine communicating with known malicious IP",
+    alertId: "VMCommunicatingMaliciousIP",
+    component: "Defender for Cloud",
+    severity: "high",
+    category: "Command and Control",
+    mitreTactic: "Command and Control",
+    mitreTechnique: "Application Layer Protocol",
+    mitreId: "T1071",
+    description: "An Azure virtual machine was detected communicating with a known malicious IP address associated with botnets, C2 infrastructure, or cryptocurrency mining pools.",
+    investigationSteps: [
+      "Identify the process making the network connection",
+      "Check the malicious IP's threat intelligence classification",
+      "Review the data exchanged with the IP",
+      "Check for malware on the VM",
+      "Review NSG flow logs for the communication pattern",
+    ],
+    kqlQuery: `SecurityAlert
+| where TimeGenerated > ago(24h)
+| where AlertType has "VM_MaliciousCommunication" or AlertName has "Communication with suspicious IP"
+| project TimeGenerated, AlertName, AlertSeverity, CompromisedEntity, RemediationSteps, Entities`,
+    responseActions: [
+      "Block the malicious IP in NSG rules",
+      "Isolate the VM from the network",
+      "Run antimalware scan on the VM",
+      "Check for unauthorized processes and services",
+      "Review and rotate credentials stored on the VM",
+      "Deploy network micro-segmentation",
+    ],
+    falsePositiveGuidance: "Threat intelligence IPs may have been cleaned. Check the TI source date. CDN and shared hosting IPs may generate false positives.",
+    defenderPortalPath: "portal.azure.com → Microsoft Defender for Cloud → Security alerts",
+    relatedAlerts: ["mdc-003", "mde-009"],
+  },
+  {
+    id: "mdc-012",
+    title: "Suspicious Azure Key Vault access",
+    alertId: "SuspiciousKeyVaultAccess",
+    component: "Defender for Cloud",
+    severity: "critical",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Unsecured Credentials: Cloud Instance Metadata API",
+    mitreId: "T1552.005",
+    description: "Unusual access patterns to Azure Key Vault were detected — listing secrets, bulk retrieval of keys, or access from unexpected identities or locations.",
+    investigationSteps: [
+      "Review the Key Vault access logs for the operations performed",
+      "Identify the caller identity and IP address",
+      "Check if the operations match normal application behavior",
+      "Review which secrets/keys/certificates were accessed",
+      "Verify if the caller has legitimate access to the Key Vault",
+    ],
+    kqlQuery: `AzureDiagnostics
+| where ResourceType == "VAULTS"
+| where TimeGenerated > ago(24h)
+| where OperationName in ("SecretGet", "SecretList", "KeyGet", "KeyList")
+| summarize OperationCount=count() by CallerIPAddress, Identity, OperationName, bin(TimeGenerated, 1h)
+| where OperationCount > 20
+| order by OperationCount desc`,
+    responseActions: [
+      "Rotate all secrets/keys accessed from the Key Vault",
+      "Review and restrict Key Vault access policies",
+      "Enable Key Vault firewall and VNet rules",
+      "Implement purge protection and soft delete",
+      "Deploy Defender for Key Vault if not enabled",
+      "Review the calling identity's permissions",
+    ],
+    falsePositiveGuidance: "Application deployments and secret rotation scripts may generate bulk Key Vault operations. Check against deployment schedules.",
+    defenderPortalPath: "portal.azure.com → Microsoft Defender for Cloud → Security alerts",
+    relatedAlerts: ["mdc-006", "mdc-010"],
+  },
+  {
+    id: "mdc-013",
+    title: "Suspicious Azure network watcher manipulation",
+    alertId: "NetworkWatcherManipulation",
+    component: "Defender for Cloud",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Impair Defenses: Disable Cloud Logs",
+    mitreId: "T1562.008",
+    description: "Azure Network Watcher or network flow logs were disabled or modified, potentially to hide malicious network activity and prevent detection.",
+    investigationSteps: [
+      "Review who disabled the Network Watcher/flow logs",
+      "Check the Activity log for the operation details",
+      "Verify if this was part of a legitimate change",
+      "Review recent network activity before logs were disabled",
+      "Check for other defense evasion activities from the same actor",
+    ],
+    kqlQuery: `AzureActivity
+| where TimeGenerated > ago(7d)
+| where OperationNameValue has_any ("Microsoft.Network/networkWatchers/delete", "flowLogs/delete", "NetworkWatcher/disable")
+| project TimeGenerated, Caller, CallerIpAddress, OperationNameValue, ActivityStatusValue`,
+    responseActions: [
+      "Re-enable Network Watcher and flow logs immediately",
+      "Review the caller's identity for compromise",
+      "Check for suspicious network activity during the gap",
+      "Implement Azure Policy to prevent log disabling",
+      "Set up alerts for diagnostic settings changes",
+    ],
+    falsePositiveGuidance: "Cost optimization or resource cleanup may disable unused monitoring. Verify with the infrastructure team.",
+    defenderPortalPath: "portal.azure.com → Microsoft Defender for Cloud → Security alerts",
+    relatedAlerts: ["mdc-006", "entra-010"],
+  },
+  {
+    id: "mdc-014",
+    title: "Publicly exposed Azure database detected",
+    alertId: "PublicDatabaseExposed",
+    component: "Defender for Cloud",
+    severity: "critical",
+    category: "Misconfiguration",
+    mitreTactic: "Initial Access",
+    mitreTechnique: "Exploit Public-Facing Application",
+    mitreId: "T1190",
+    description: "An Azure database (SQL, CosmosDB, PostgreSQL, MySQL) was detected with public network access enabled and weak authentication, making it accessible from the internet.",
+    investigationSteps: [
+      "Check the database firewall rules for overly permissive entries",
+      "Verify if the database has public endpoint enabled",
+      "Review the database authentication method",
+      "Check for any unauthorized access in audit logs",
+      "Assess the sensitivity of data stored in the database",
+    ],
+    kqlQuery: `AzureActivity
+| where TimeGenerated > ago(7d)
+| where OperationNameValue has_any ("Microsoft.Sql/servers/firewallRules/write", "Microsoft.DBforPostgreSQL/servers/firewallRules/write")
+| where Properties has "0.0.0.0" or Properties has "255.255.255.255"
+| project TimeGenerated, Caller, OperationNameValue, Properties, ResourceGroup`,
+    responseActions: [
+      "Remove public access rules immediately (0.0.0.0/0)",
+      "Enable VNet service endpoints or Private Link",
+      "Implement Azure AD authentication for the database",
+      "Rotate database credentials",
+      "Enable Advanced Threat Protection for the database",
+      "Audit recent queries for unauthorized data access",
+    ],
+    falsePositiveGuidance: "Development databases may temporarily need public access. Verify with the development team and ensure proper authentication.",
+    defenderPortalPath: "portal.azure.com → Microsoft Defender for Cloud → Recommendations",
+    relatedAlerts: ["mdc-007", "mdc-009"],
+  },
+  {
+    id: "mdc-015",
+    title: "Azure diagnostic settings deleted",
+    alertId: "DiagnosticSettingsDeleted",
+    component: "Defender for Cloud",
+    severity: "high",
+    category: "Defense Evasion",
+    mitreTactic: "Defense Evasion",
+    mitreTechnique: "Impair Defenses: Disable Cloud Logs",
+    mitreId: "T1562.008",
+    description: "Azure diagnostic settings were deleted from a resource, potentially to prevent audit trail and hide malicious activity from security monitoring.",
+    investigationSteps: [
+      "Identify which diagnostic settings were deleted",
+      "Review the resource that lost monitoring",
+      "Check who performed the deletion",
+      "Look for other suspicious actions from the same actor",
+      "Review logs that were available before deletion",
+    ],
+    kqlQuery: `AzureActivity
+| where TimeGenerated > ago(7d)
+| where OperationNameValue has "diagnosticSettings/delete"
+| where ActivityStatusValue == "Success"
+| project TimeGenerated, Caller, CallerIpAddress, OperationNameValue, ResourceId`,
+    responseActions: [
+      "Re-create diagnostic settings immediately",
+      "Review the caller's account for compromise",
+      "Implement Azure Policy to enforce diagnostic settings",
+      "Set up alerts for diagnostic settings modifications",
+      "Review activity on the resource during the monitoring gap",
+    ],
+    falsePositiveGuidance: "Resource cleanup and Log Analytics workspace migrations may involve deleting diagnostic settings. Verify with the ops team.",
+    defenderPortalPath: "portal.azure.com → Microsoft Defender for Cloud → Security alerts",
+    relatedAlerts: ["mdc-013", "mdc-006"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE MICROSOFT ENTRA ID PROTECTION — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "entra-011",
+    title: "Adversary-in-the-middle (AiTM) phishing session detected",
+    alertId: "AiTMPhishing",
+    component: "Microsoft Entra ID Protection",
+    severity: "critical",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Adversary-in-the-Middle",
+    mitreId: "T1557",
+    description: "A sign-in was detected using a stolen session cookie from an adversary-in-the-middle (AiTM) phishing attack that proxied the legitimate login page to capture tokens.",
+    investigationSteps: [
+      "Review the sign-in details for anomalous session token properties",
+      "Check for phishing emails received by the user",
+      "Review the proxy infrastructure used in the attack",
+      "Check if the user's MFA was bypassed via session theft",
+      "Review all actions performed with the stolen session",
+    ],
+    kqlQuery: `AADSignInEventsBeta
+| where Timestamp > ago(24h)
+| where RiskEventTypes has "adversaryInTheMiddle" or SessionId has "aitm"
+| project Timestamp, AccountUpn, IPAddress, SessionId, RiskLevelDuringSignIn, Application, DeviceName`,
+    responseActions: [
+      "Revoke ALL sessions and refresh tokens immediately",
+      "Reset the user's password",
+      "Require phishing-resistant MFA (FIDO2, Windows Hello)",
+      "Review and revert any changes made during the stolen session",
+      "Block the phishing proxy infrastructure",
+      "Deploy token protection policies (token binding)",
+    ],
+    falsePositiveGuidance: "Very rare false positive. AiTM detections should always be investigated. Corporate proxies may occasionally be misidentified.",
+    defenderPortalPath: "entra.microsoft.com → Protection → Identity Protection → Risk detections",
+    relatedAlerts: ["entra-006", "mdo-001"],
+  },
+  {
+    id: "entra-012",
+    title: "Suspicious bulk operations on Azure AD",
+    alertId: "BulkAzureADOperations",
+    component: "Microsoft Entra ID Protection",
+    severity: "high",
+    category: "Impact",
+    mitreTactic: "Impact",
+    mitreTechnique: "Account Access Removal",
+    mitreId: "T1531",
+    description: "Bulk operations were performed in Azure AD — mass user creation, deletion, or modification that may indicate account manipulation or destructive activity.",
+    investigationSteps: [
+      "Review the type and scope of bulk operations",
+      "Identify the admin account that performed them",
+      "Check if operations were part of scheduled provisioning",
+      "Review if user accounts were deleted or disabled",
+      "Check for associated PowerShell or Graph API usage",
+    ],
+    kqlQuery: `AuditLogs
+| where TimeGenerated > ago(24h)
+| where OperationName has_any ("Add user", "Delete user", "Disable account", "Update user")
+| summarize OperationCount=count() by InitiatedBy, OperationName, bin(TimeGenerated, 1h)
+| where OperationCount > 10
+| order by OperationCount desc`,
+    responseActions: [
+      "Verify the bulk operations with the identity team",
+      "If unauthorized, revert changes immediately",
+      "Disable the admin account if compromised",
+      "Restore deleted accounts from Azure AD recycle bin",
+      "Implement approval workflows for bulk operations",
+    ],
+    falsePositiveGuidance: "HR-driven provisioning, directory sync, and organizational restructuring involve bulk operations. Check with HR and IT.",
+    defenderPortalPath: "entra.microsoft.com → Audit logs",
+    relatedAlerts: ["entra-009", "mcas-010"],
+  },
+  {
+    id: "entra-013",
+    title: "Suspicious MFA fatigue attack detected",
+    alertId: "MFAFatigue",
+    component: "Microsoft Entra ID Protection",
+    severity: "high",
+    category: "Credential Access",
+    mitreTactic: "Credential Access",
+    mitreTechnique: "Multi-Factor Authentication Request Generation",
+    mitreId: "T1621",
+    description: "Repeated MFA push notifications were sent to a user in a short period, indicating an MFA fatigue/bombing attack where attackers repeatedly trigger MFA hoping the user approves.",
+    investigationSteps: [
+      "Check the number of MFA prompts sent to the user",
+      "Review if the user reported unexpected MFA requests",
+      "Verify the source IP of authentication attempts",
+      "Check if the user accidentally approved any requests",
+      "Review if the user's password was compromised",
+    ],
+    kqlQuery: `AADSignInEventsBeta
+| where Timestamp > ago(24h)
+| where ErrorCode == 500121 // MFA denied
+| summarize MFADeniedCount=count() by AccountUpn, IPAddress, bin(Timestamp, 1h)
+| where MFADeniedCount > 5
+| order by MFADeniedCount desc`,
+    responseActions: [
+      "Reset the user's password immediately",
+      "Block the attacking IP address",
+      "Switch from push MFA to number matching or FIDO2",
+      "Review if the user approved any suspicious MFA request",
+      "Revoke active sessions if MFA was approved",
+      "Enable additional sign-in fraud reporting for users",
+    ],
+    falsePositiveGuidance: "Users with connectivity issues may generate multiple MFA failures. Check if the failures are from the user's known devices.",
+    defenderPortalPath: "entra.microsoft.com → Protection → Identity Protection → Risk detections",
+    relatedAlerts: ["entra-002", "entra-001"],
+  },
+  {
+    id: "entra-014",
+    title: "Guest user granted elevated permissions",
+    alertId: "GuestElevatedPermissions",
+    component: "Microsoft Entra ID Protection",
+    severity: "medium",
+    category: "Privilege Escalation",
+    mitreTactic: "Privilege Escalation",
+    mitreTechnique: "Account Manipulation",
+    mitreId: "T1098",
+    description: "A guest (B2B) user was granted elevated permissions — added to a privileged role, security group, or granted admin access to a resource.",
+    investigationSteps: [
+      "Identify which guest account received elevated permissions",
+      "Review who granted the permissions",
+      "Verify the business justification for guest access",
+      "Check the guest's home tenant and organization",
+      "Review what resources the guest can now access",
+    ],
+    kqlQuery: `AuditLogs
+| where TimeGenerated > ago(7d)
+| where OperationName has "Add member to role" or OperationName has "Add member to group"
+| where TargetResources has "#EXT#" or TargetResources has "guest"
+| project TimeGenerated, InitiatedBy, OperationName, TargetResources`,
+    responseActions: [
+      "Review and reduce guest permissions if excessive",
+      "Implement access reviews for guest users",
+      "Apply conditional access policies for guests",
+      "Enable guest access restrictions in Azure AD settings",
+      "Set up alerts for guest permission changes",
+    ],
+    falsePositiveGuidance: "Legitimate B2B collaboration may require elevated guest access. Verify with the inviting team and project scope.",
+    defenderPortalPath: "entra.microsoft.com → Users → Guest users",
+    relatedAlerts: ["entra-009", "mcas-010"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE MICROSOFT PURVIEW DLP — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "purview-007",
+    title: "Source code uploaded to external repository",
+    alertId: "SourceCodeExfiltration",
+    component: "Microsoft Purview DLP",
+    severity: "critical",
+    category: "Data Loss",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over Web Service",
+    mitreId: "T1567",
+    description: "Proprietary source code or intellectual property was detected being uploaded to external code repositories (personal GitHub, GitLab, Bitbucket) outside corporate controls.",
+    investigationSteps: [
+      "Identify the repository and user account",
+      "Review what source code was uploaded",
+      "Check if the code contains secrets, API keys, or IP",
+      "Verify if the user has authorization for open-source contribution",
+      "Review the repository visibility (public vs. private)",
+    ],
+    kqlQuery: `DeviceNetworkEvents
+| where Timestamp > ago(7d)
+| where RemoteUrl has_any ("github.com", "gitlab.com", "bitbucket.org")
+| where ActionType == "ConnectionSuccess"
+| summarize UploadBytes=sum(SentBytes) by DeviceName, AccountName, RemoteUrl, bin(Timestamp, 1h)
+| where UploadBytes > 1000000
+| order by UploadBytes desc`,
+    responseActions: [
+      "Request immediate removal of the code from the external repo",
+      "If code is public, initiate DMCA takedown if necessary",
+      "Review the code for embedded secrets and rotate them",
+      "Notify legal and management",
+      "Implement endpoint DLP to block code repo uploads",
+      "Review the developer's access to source code",
+    ],
+    falsePositiveGuidance: "Developers contributing to approved open-source projects. Check against the organization's open-source policy.",
+    defenderPortalPath: "compliance.microsoft.com → Data loss prevention → Alerts",
+    relatedAlerts: ["purview-005", "purview-001"],
+  },
+  {
+    id: "purview-008",
+    title: "Credit card data detected in email",
+    alertId: "CreditCardInEmail",
+    component: "Microsoft Purview DLP",
+    severity: "high",
+    category: "Data Loss",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over Web Service",
+    mitreId: "T1567",
+    description: "Email containing credit card numbers, CVV codes, or payment card industry (PCI) data was detected, violating PCI-DSS compliance requirements.",
+    investigationSteps: [
+      "Review the email content for actual card data vs. test data",
+      "Check the sender and recipient",
+      "Verify if the email was internal or external",
+      "Determine if the data is tokenized or actual PANs",
+      "Review if the sender handles PCI data regularly",
+    ],
+    kqlQuery: `EmailEvents
+| where Timestamp > ago(7d)
+| where ThreatTypes has "DLP"
+| where Subject has_any ("payment", "card", "credit", "invoice")
+| project Timestamp, SenderFromAddress, RecipientEmailAddress, Subject, DeliveryAction`,
+    responseActions: [
+      "Quarantine or delete the email containing card data",
+      "Notify the sender about PCI-DSS violations",
+      "Report to the PCI compliance team",
+      "Review if the card data needs to be rotated",
+      "Implement DLP policies to block credit card patterns in email",
+      "Educate the user on secure payment data handling",
+    ],
+    falsePositiveGuidance: "Test credit card numbers, invoice references, and loyalty card numbers may match patterns. Verify with Luhn check and context.",
+    defenderPortalPath: "compliance.microsoft.com → Data loss prevention → Alerts",
+    relatedAlerts: ["purview-001", "purview-004"],
+  },
+  {
+    id: "purview-009",
+    title: "Health records (PHI/HIPAA) shared externally",
+    alertId: "PHIExternalShare",
+    component: "Microsoft Purview DLP",
+    severity: "critical",
+    category: "Data Loss",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over Web Service",
+    mitreId: "T1567",
+    description: "Protected health information (PHI) was detected being shared externally, potentially violating HIPAA regulations and patient privacy requirements.",
+    investigationSteps: [
+      "Review the files for PHI content (patient names, SSN, medical records)",
+      "Identify the external recipient",
+      "Check if a BAA (Business Associate Agreement) exists with the recipient",
+      "Review the sensitivity labels on the shared content",
+      "Verify if the sharing was for authorized treatment/operations",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(7d)
+| where ActionType in ("SharingSet", "FileSyncUploadedFull")
+| where RawEventData has_any ("External", "anonymous")
+| where ObjectName has_any (".pdf", ".xlsx", ".docx")
+| project Timestamp, AccountDisplayName, ActionType, ObjectName, RawEventData`,
+    responseActions: [
+      "Revoke external access immediately",
+      "Notify the Privacy Officer / HIPAA compliance team",
+      "Document the incident for HIPAA breach assessment",
+      "Determine if breach notification is required (>500 records)",
+      "Retrain the user on PHI handling procedures",
+      "Implement stricter DLP policies for health data",
+    ],
+    falsePositiveGuidance: "Sharing with covered entities under BAA may be legitimate. Verify the recipient organization and agreement status.",
+    defenderPortalPath: "compliance.microsoft.com → Data loss prevention → Alerts",
+    relatedAlerts: ["purview-004", "purview-001"],
+  },
+  {
+    id: "purview-010",
+    title: "Sensitive data in Microsoft Teams chat",
+    alertId: "SensitiveDataTeams",
+    component: "Microsoft Purview DLP",
+    severity: "medium",
+    category: "Data Loss",
+    mitreTactic: "Exfiltration",
+    mitreTechnique: "Exfiltration Over Web Service",
+    mitreId: "T1567",
+    description: "Sensitive information (SSN, credit cards, passwords, API keys) was detected in Microsoft Teams chat messages, where it may be visible to unintended recipients.",
+    investigationSteps: [
+      "Review the Teams message content for sensitive data types",
+      "Check the chat type (1:1, group, channel) and participants",
+      "Verify if the chat includes external guest users",
+      "Determine the sensitivity classification of the data",
+      "Check if the user has a pattern of sharing sensitive data in Teams",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(7d)
+| where Application == "Microsoft Teams"
+| where ActionType in ("MessageCreated", "MessageUpdated")
+| where RawEventData has_any ("SSN", "credit card", "password", "api_key", "secret")
+| project Timestamp, AccountDisplayName, ActionType, RawEventData`,
+    responseActions: [
+      "Delete or edit the message containing sensitive data",
+      "Notify the user about the policy violation",
+      "Enable DLP tips in Teams to warn users before sending",
+      "Review Teams external access and guest policies",
+      "Implement sensitivity labels for Teams channels",
+    ],
+    falsePositiveGuidance: "Users may discuss security concepts mentioning 'password' or 'SSN' without sharing actual data. Review the message context.",
+    defenderPortalPath: "compliance.microsoft.com → Data loss prevention → Alerts",
+    relatedAlerts: ["purview-001", "purview-002"],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MORE APP GOVERNANCE — Comprehensive Coverage
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: "appgov-008",
+    title: "Application impersonating user without consent",
+    alertId: "AppImpersonation",
+    component: "App Governance",
+    severity: "critical",
+    category: "Privilege Escalation",
+    mitreTactic: "Privilege Escalation",
+    mitreTechnique: "Valid Accounts: Cloud Accounts",
+    mitreId: "T1078.004",
+    description: "An application was detected performing actions on behalf of users without proper delegated consent, potentially using application permissions to impersonate user activity.",
+    investigationSteps: [
+      "Review the application's permission type (delegated vs. application)",
+      "Check what user actions the app is performing",
+      "Verify if admin consent was properly granted",
+      "Review the app's impersonation scope",
+      "Check the app's authentication logs for anomalies",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(7d)
+| where AccountDisplayName has "service" or AccountDisplayName has "app"
+| where ActionType has_any ("MailItemsAccessed", "FileAccessed", "Send")
+| where RawEventData has "Impersonation"
+| project Timestamp, AccountDisplayName, ActionType, ObjectName, IPAddress`,
+    responseActions: [
+      "Revoke the app's permissions immediately",
+      "Review all actions performed via impersonation",
+      "Notify affected users whose identity was impersonated",
+      "Block the application ID",
+      "Implement application consent policies to prevent future abuse",
+    ],
+    falsePositiveGuidance: "Backup solutions, migration tools, and service desk apps legitimately use impersonation. Verify with the app owner.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
+    relatedAlerts: ["appgov-005", "entra-008"],
+  },
+  {
+    id: "appgov-009",
+    title: "Suspicious app registration in Azure AD",
+    alertId: "SuspiciousAppRegistration",
+    component: "App Governance",
+    severity: "medium",
+    category: "Persistence",
+    mitreTactic: "Persistence",
+    mitreTechnique: "Account Manipulation: Additional Cloud Credentials",
+    mitreId: "T1098.001",
+    description: "A new application was registered in Azure AD with suspicious characteristics — high-privilege API permissions, unusual redirect URIs, or registered by a potentially compromised account.",
+    investigationSteps: [
+      "Review the app registration details and permissions",
+      "Check who registered the application",
+      "Verify the redirect URI domains",
+      "Review if the registering account was compromised",
+      "Check if the app has been granted admin consent",
+    ],
+    kqlQuery: `AuditLogs
+| where TimeGenerated > ago(7d)
+| where OperationName == "Add application"
+| project TimeGenerated, InitiatedBy, TargetResources, AdditionalDetails
+| extend AppName = tostring(TargetResources[0].displayName)`,
+    responseActions: [
+      "Review and restrict the app's requested permissions",
+      "If unauthorized, delete the app registration",
+      "Check the registering account for compromise",
+      "Implement policies to restrict app registration to admins",
+      "Enable app governance monitoring for new registrations",
+    ],
+    falsePositiveGuidance: "Developers register apps for legitimate projects. Verify with the development team and check the app's purpose.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
+    relatedAlerts: ["appgov-007", "entra-008"],
+  },
+  {
+    id: "appgov-010",
+    title: "Application sending excessive email",
+    alertId: "AppExcessiveEmail",
+    component: "App Governance",
+    severity: "high",
+    category: "Impact",
+    mitreTactic: "Impact",
+    mitreTechnique: "Email Collection",
+    mitreId: "T1114",
+    description: "An application with mail.send permissions is sending an unusually high volume of emails, potentially indicating spam, phishing, or abuse of the application's email capabilities.",
+    investigationSteps: [
+      "Review the volume of emails sent by the application",
+      "Check the email content and recipients",
+      "Verify if the sending pattern matches the app's purpose",
+      "Review the app's mail.send permission scope",
+      "Check for bounce rates indicating spam/phishing",
+    ],
+    kqlQuery: `CloudAppEvents
+| where Timestamp > ago(24h)
+| where ActionType == "Send" or ActionType == "MailItemsAccessed"
+| where AccountDisplayName has "app" or IsExternalUser == true
+| summarize EmailCount=count() by AccountDisplayName, bin(Timestamp, 1h)
+| where EmailCount > 100
+| order by EmailCount desc`,
+    responseActions: [
+      "Throttle or revoke the app's mail.send permission",
+      "Review sent emails for malicious content",
+      "Block the app if sending spam/phishing",
+      "Implement rate limiting for application email sending",
+      "Notify the app owner about the excessive sending",
+    ],
+    falsePositiveGuidance: "Notification systems, marketing platforms, and reporting apps may send high volumes. Check against the app's expected behavior.",
+    defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
+    relatedAlerts: ["appgov-005", "mdo-009"],
+  },
 ];
 
 // ─── Helper functions ────────────────────────────────────────────────────────
