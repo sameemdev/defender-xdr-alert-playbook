@@ -33,32 +33,43 @@ export interface ThreatItem {
   references: string[];
 }
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+function fetchWithTimeout(url: string, timeoutMs: number = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+const CISA_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+const CORS_PROXIES = [
+  (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+];
 
 export async function fetchCisaKev(): Promise<ThreatItem[]> {
-  try {
-    const res = await fetch(
-      `${CORS_PROXY}${encodeURIComponent('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json')}`
-    );
-    if (!res.ok) throw new Error('CISA fetch failed');
-    const data = await res.json();
-    const vulns: CisaVulnerability[] = data.vulnerabilities || [];
-    
-    return vulns.slice(0, 50).map((v) => ({
-      id: v.cveID,
-      title: v.vulnerabilityName,
-      source: 'CISA KEV' as const,
-      severity: v.knownRansomwareCampaignUse === 'Known' ? 'critical' as const : 'high' as const,
-      date: v.dateAdded,
-      description: v.shortDescription,
-      indicator: v.cveID,
-      tags: [v.vendorProject, v.product, v.knownRansomwareCampaignUse === 'Known' ? 'Ransomware' : ''].filter(Boolean),
-      references: [`https://nvd.nist.gov/vuln/detail/${v.cveID}`],
-    }));
-  } catch (e) {
-    console.error('CISA KEV fetch error:', e);
-    return [];
+  for (const makeUrl of CORS_PROXIES) {
+    try {
+      const res = await fetchWithTimeout(makeUrl(CISA_URL), 12000);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const vulns: CisaVulnerability[] = data.vulnerabilities || [];
+
+      return vulns.slice(0, 50).map((v) => ({
+        id: v.cveID,
+        title: v.vulnerabilityName,
+        source: 'CISA KEV' as const,
+        severity: v.knownRansomwareCampaignUse === 'Known' ? 'critical' as const : 'high' as const,
+        date: v.dateAdded,
+        description: v.shortDescription,
+        indicator: v.cveID,
+        tags: [v.vendorProject, v.product, v.knownRansomwareCampaignUse === 'Known' ? 'Ransomware' : ''].filter(Boolean),
+        references: [`https://nvd.nist.gov/vuln/detail/${v.cveID}`],
+      }));
+    } catch (e) {
+      console.warn('CISA proxy failed, trying next:', e);
+    }
   }
+  console.error('All CISA KEV proxies failed');
+  return [];
 }
 
 export async function fetchNvdRecent(): Promise<ThreatItem[]> {
