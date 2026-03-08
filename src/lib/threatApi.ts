@@ -114,7 +114,7 @@ export async function fetchNvdRecent(): Promise<ThreatItem[]> {
 
 export async function fetchGithubAdvisories(): Promise<ThreatItem[]> {
   try {
-    const res = await fetch('https://api.github.com/advisories?per_page=30&type=reviewed');
+    const res = await fetchWithTimeout('https://api.github.com/advisories?per_page=30&type=reviewed', 15000);
     if (!res.ok) throw new Error('GitHub advisories fetch failed');
     const data = await res.json();
     
