@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { NavLink } from "@/components/NavLink";
+
 import {
   Shield, BookOpen, Search, ChevronDown, ChevronRight,
   Terminal, Copy, Target, AlertTriangle, CheckCircle2,
@@ -207,17 +207,7 @@ const AlertsPage = () => {
                 </p>
               </div>
             </div>
-            <nav className="flex items-center gap-1">
-              <NavLink to="/" className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary">
-                <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> THREATS</span>
-              </NavLink>
-              <NavLink to="/playbook" className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary">
-                <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> PLAYBOOKS</span>
-              </NavLink>
-              <span className="px-3 py-1.5 text-xs font-mono text-accent bg-accent/10 rounded-md border border-accent/20">
-                <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> XDR ALERTS</span>
-              </span>
-            </nav>
+            
           </div>
         </header>
 
