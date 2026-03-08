@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { NavLink } from "@/components/NavLink";
+
 import {
   Shield, BookOpen, Search, ChevronDown, ChevronRight,
   Terminal, Copy, Target, AlertTriangle, CheckCircle2,
