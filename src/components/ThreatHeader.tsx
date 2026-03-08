@@ -38,6 +38,14 @@ const ThreatHeader = ({ totalThreats, isLoading, lastUpdated }: ThreatHeaderProp
             </span>
           )}
           <NavLink
+            to="/alerts"
+            className="px-3 py-1.5 font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary border border-border"
+          >
+            <span className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5" /> XDR ALERTS
+            </span>
+          </NavLink>
+          <NavLink
             to="/playbook"
             className="px-3 py-1.5 font-mono text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary border border-border"
           >
