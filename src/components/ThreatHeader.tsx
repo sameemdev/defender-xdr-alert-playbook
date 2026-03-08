@@ -1,4 +1,5 @@
-import { Shield, Activity } from "lucide-react";
+import { Shield, Activity, BookOpen } from "lucide-react";
+import { NavLink } from "@/components/NavLink";
 
 interface ThreatHeaderProps {
   totalThreats: number;
