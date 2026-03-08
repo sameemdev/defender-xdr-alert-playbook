@@ -80,7 +80,7 @@ export async function fetchNvdRecent(): Promise<ThreatItem[]> {
     const pubEndDate = now.toISOString().split('.')[0] + '.000';
     
     const url = `https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate=${pubStartDate}&pubEndDate=${pubEndDate}&resultsPerPage=40`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, 15000);
     if (!res.ok) throw new Error('NVD fetch failed');
     const data = await res.json();
     
