@@ -166,17 +166,28 @@ const AlertDetailView = ({ alert, onBack }: { alert: XdrAlert; onBack: () => voi
 
 const AlertsPage = () => {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedComponent, setSelectedComponent] = useState<XdrComponent | null>(null);
   const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<XdrAlert | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setVisibleCount(50);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const filtered = useMemo(() => {
-    let results = searchAlerts(XDR_ALERTS, query);
+    let results = searchAlerts(XDR_ALERTS, debouncedQuery);
     if (selectedComponent) results = results.filter((a) => a.component === selectedComponent);
     if (selectedSeverity) results = results.filter((a) => a.severity === selectedSeverity);
     return results;
-  }, [query, selectedComponent, selectedSeverity]);
+  }, [debouncedQuery, selectedComponent, selectedSeverity]);
 
   const componentCounts = useMemo(() => {
     const counts: Record<string, number> = {};
