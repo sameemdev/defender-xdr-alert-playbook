@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { XDR_ALERTS, XDR_COMPONENTS, ALERT_CATEGORIES, searchAlerts, type XdrAlert, type XdrComponent } from "@/lib/xdrAlerts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,17 +166,28 @@ const AlertDetailView = ({ alert, onBack }: { alert: XdrAlert; onBack: () => voi
 
 const AlertsPage = () => {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedComponent, setSelectedComponent] = useState<XdrComponent | null>(null);
   const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<XdrAlert | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setVisibleCount(50);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const filtered = useMemo(() => {
-    let results = searchAlerts(XDR_ALERTS, query);
+    let results = searchAlerts(XDR_ALERTS, debouncedQuery);
     if (selectedComponent) results = results.filter((a) => a.component === selectedComponent);
     if (selectedSeverity) results = results.filter((a) => a.severity === selectedSeverity);
     return results;
-  }, [query, selectedComponent, selectedSeverity]);
+  }, [debouncedQuery, selectedComponent, selectedSeverity]);
 
   const componentCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -188,7 +199,11 @@ const AlertsPage = () => {
     setSelectedComponent(null);
     setSelectedSeverity(null);
     setQuery("");
+    setDebouncedQuery("");
+    setVisibleCount(50);
   };
+
+  const visibleAlerts = filtered.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen bg-background scanline">
@@ -287,7 +302,7 @@ const AlertsPage = () => {
 
               {/* Alert list */}
               <div className="space-y-2">
-                {filtered.map((alert) => (
+                {visibleAlerts.map((alert) => (
                   <Card key={alert.id}
                     className="bg-card border-border hover:border-accent/30 cursor-pointer transition-all group"
                     onClick={() => setSelectedAlert(alert)}>
@@ -321,6 +336,15 @@ const AlertsPage = () => {
                     </CardContent>
                   </Card>
                 ))}
+
+                {visibleCount < filtered.length && (
+                  <button
+                    onClick={() => setVisibleCount((c) => c + 50)}
+                    className="w-full py-3 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded-md hover:border-accent/30 transition-all"
+                  >
+                    Show more ({filtered.length - visibleCount} remaining)
+                  </button>
+                )}
 
                 {filtered.length === 0 && (
                   <div className="text-center py-12">
