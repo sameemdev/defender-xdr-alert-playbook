@@ -302,7 +302,7 @@ const AlertsPage = () => {
 
               {/* Alert list */}
               <div className="space-y-2">
-                {filtered.map((alert) => (
+                {visibleAlerts.map((alert) => (
                   <Card key={alert.id}
                     className="bg-card border-border hover:border-accent/30 cursor-pointer transition-all group"
                     onClick={() => setSelectedAlert(alert)}>
@@ -336,6 +336,15 @@ const AlertsPage = () => {
                     </CardContent>
                   </Card>
                 ))}
+
+                {visibleCount < filtered.length && (
+                  <button
+                    onClick={() => setVisibleCount((c) => c + 50)}
+                    className="w-full py-3 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded-md hover:border-accent/30 transition-all"
+                  >
+                    Show more ({filtered.length - visibleCount} remaining)
+                  </button>
+                )}
 
                 {filtered.length === 0 && (
                   <div className="text-center py-12">
