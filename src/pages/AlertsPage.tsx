@@ -199,7 +199,11 @@ const AlertsPage = () => {
     setSelectedComponent(null);
     setSelectedSeverity(null);
     setQuery("");
+    setDebouncedQuery("");
+    setVisibleCount(50);
   };
+
+  const visibleAlerts = filtered.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen bg-background scanline">
