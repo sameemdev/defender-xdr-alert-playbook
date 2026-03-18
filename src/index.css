@@ -6,58 +6,53 @@
 
 @layer base {
   :root {
-    --background: 220 20% 7%;
-    --foreground: 210 20% 90%;
+    --background: 222 30% 8%;
+    --foreground: 210 20% 92%;
 
-    --card: 220 18% 10%;
-    --card-foreground: 210 20% 90%;
+    --card: 222 26% 11%;
+    --card-foreground: 210 20% 92%;
 
-    --popover: 220 18% 10%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 222 26% 11%;
+    --popover-foreground: 210 20% 92%;
 
-    --primary: 160 100% 45%;
-    --primary-foreground: 220 20% 7%;
+    --primary: 210 100% 56%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 16%;
-    --secondary-foreground: 210 20% 80%;
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 210 15% 75%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 222 20% 14%;
+    --muted-foreground: 215 15% 52%;
 
-    --accent: 200 100% 50%;
-    --accent-foreground: 220 20% 7%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 220 20% 7%;
+    --warning-foreground: 0 0% 10%;
 
-    --success: 160 100% 45%;
-    --success-foreground: 220 20% 7%;
+    --success: 152 69% 45%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 160 100% 45%;
+    --border: 222 18% 18%;
+    --input: 222 18% 18%;
+    --ring: 210 100% 56%;
 
     --radius: 0.5rem;
 
     --font-mono: 'JetBrains Mono', monospace;
     --font-sans: 'Inter', sans-serif;
 
-    --glow-primary: 0 0 20px hsl(160 100% 45% / 0.3);
-    --glow-accent: 0 0 20px hsl(200 100% 50% / 0.3);
-    --glow-destructive: 0 0 20px hsl(0 72% 55% / 0.3);
-    --glow-warning: 0 0 20px hsl(38 92% 50% / 0.3);
-
-    --sidebar-background: 220 18% 10%;
-    --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 160 100% 45%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 220 14% 14%;
-    --sidebar-accent-foreground: 210 20% 80%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 160 100% 45%;
+    --sidebar-background: 222 26% 11%;
+    --sidebar-foreground: 210 15% 75%;
+    --sidebar-primary: 210 100% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 20% 14%;
+    --sidebar-accent-foreground: 210 15% 75%;
+    --sidebar-border: 222 18% 18%;
+    --sidebar-ring: 210 100% 56%;
   }
 }
 
@@ -73,35 +68,5 @@
 
   code, pre, .font-mono {
     font-family: var(--font-mono);
-  }
-}
-
-@layer utilities {
-  .text-glow-primary {
-    text-shadow: var(--glow-primary);
-  }
-  .text-glow-accent {
-    text-shadow: var(--glow-accent);
-  }
-  .box-glow-primary {
-    box-shadow: var(--glow-primary);
-  }
-  .box-glow-accent {
-    box-shadow: var(--glow-accent);
-  }
-  .box-glow-destructive {
-    box-shadow: var(--glow-destructive);
-  }
-  .box-glow-warning {
-    box-shadow: var(--glow-warning);
-  }
-  .scanline {
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      hsl(160 100% 45% / 0.03) 2px,
-      hsl(160 100% 45% / 0.03) 4px
-    );
   }
 }
