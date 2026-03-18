@@ -65,7 +65,7 @@ export const XDR_ALERTS: XdrAlert[] = [
 | summarize FileCount=count(), Devices=dcount(DeviceName) by FileName, FolderPath
 | order by FileCount desc
 
-// Check for shadow copy deletion
+// This query shows potential data destruction/wiping by ransomeware. See who executed the processes/command and in which context. (Query Source: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-find-ransomware)
 // Find attempts to stop processes using taskkill.exe
 let taskKill = DeviceProcessEvents
 | where Timestamp > ago(1d)
