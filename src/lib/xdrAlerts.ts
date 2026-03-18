@@ -6646,14 +6646,29 @@ export const ALERT_CATEGORIES = [
 export function searchAlerts(alerts: XdrAlert[], query: string): XdrAlert[] {
   const q = query.toLowerCase().trim();
   if (!q) return alerts;
-  return alerts.filter((a) =>
-    a.title.toLowerCase().includes(q) ||
-    a.alertId.toLowerCase().includes(q) ||
-    a.description.toLowerCase().includes(q) ||
-    a.component.toLowerCase().includes(q) ||
-    a.category.toLowerCase().includes(q) ||
-    a.mitreTactic.toLowerCase().includes(q) ||
-    a.mitreTechnique.toLowerCase().includes(q) ||
-    a.mitreId.toLowerCase().includes(q)
-  );
+
+  // Support multi-word search: all terms must match somewhere
+  const terms = q.split(/\s+/).filter(Boolean);
+
+  return alerts.filter((alert) => {
+    const searchableText = [
+      alert.title,
+      alert.alertId,
+      alert.description,
+      alert.component,
+      alert.category,
+      alert.mitreTactic,
+      alert.mitreTechnique,
+      alert.mitreId,
+      alert.severity,
+      ...(alert.kqlQuery ? [alert.kqlQuery] : []),
+      ...alert.investigationSteps,
+      ...alert.responseActions,
+      alert.falsePositiveGuidance,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return terms.every((term) => searchableText.includes(term));
+  });
 }
