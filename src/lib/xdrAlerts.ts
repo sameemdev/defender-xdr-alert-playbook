@@ -6685,7 +6685,7 @@ AADSignInEventsBeta
     defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
     relatedAlerts: ["appgov-005", "mdo-009"],
   },
-];
+].sort((a, b) => a.title.localeCompare(b.title));
 
 // ─── Helper functions ────────────────────────────────────────────────────────
 
@@ -6706,7 +6706,7 @@ export const ALERT_CATEGORIES = [
   "Exfiltration", "Collection", "Discovery", "Initial Access", "Impact",
   "Social Engineering", "Data Loss", "Misconfiguration", "Privilege Escalation",
   "Spam",
-].sort((a, b) => a.title.localeCompare(b.title));
+];
 
 export function searchAlerts(alerts: XdrAlert[], query: string): XdrAlert[] {
   const q = query.toLowerCase().trim();
