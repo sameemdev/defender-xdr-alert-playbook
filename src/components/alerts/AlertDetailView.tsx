@@ -121,9 +121,7 @@ const AlertDetailView = ({ alert, onBack, onSelectAlert }: AlertDetailViewProps)
                 {copiedKql ? "Copied!" : "Copy"}
               </Button>
             </div>
-            <pre className="bg-background border border-border rounded-md p-3 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed whitespace-pre-wrap">
-              {alert.kqlQuery}
-            </pre>
+            <KqlHighlighter code={alert.kqlQuery} />
           </CardContent>
         </Card>
       )}
