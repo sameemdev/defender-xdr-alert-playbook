@@ -32,7 +32,7 @@ export interface XdrAlert {
   relatedAlerts: string[];
 }
 
-export const XDR_ALERTS: XdrAlert[] = [
+export const XDR_ALERTS = ([
   // ═══════════════════════════════════════════════════════════════════════════
   // DEFENDER FOR ENDPOINT (MDE)
   // ═══════════════════════════════════════════════════════════════════════════
