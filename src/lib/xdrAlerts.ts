@@ -6685,7 +6685,7 @@ AADSignInEventsBeta
     defenderPortalPath: "security.microsoft.com → Cloud apps → App governance",
     relatedAlerts: ["appgov-005", "mdo-009"],
   },
-].sort((a, b) => a.title.localeCompare(b.title));
+] as XdrAlert[]).sort((a, b) => a.title.localeCompare(b.title));
 
 // ─── Helper functions ────────────────────────────────────────────────────────
 
