@@ -6706,17 +6706,16 @@ export const ALERT_CATEGORIES = [
   "Exfiltration", "Collection", "Discovery", "Initial Access", "Impact",
   "Social Engineering", "Data Loss", "Misconfiguration", "Privilege Escalation",
   "Spam",
-];
+].sort((a, b) => a.title.localeCompare(b.title));
 
 export function searchAlerts(alerts: XdrAlert[], query: string): XdrAlert[] {
   const q = query.toLowerCase().trim();
   if (!q) return alerts;
 
-  // Support multi-word search: all terms must match somewhere
   const terms = q.split(/\s+/).filter(Boolean);
 
   return alerts.filter((alert) => {
-    const searchableText = [
+    const fields = [
       alert.title,
       alert.alertId,
       alert.description,
@@ -6726,14 +6725,10 @@ export function searchAlerts(alerts: XdrAlert[], query: string): XdrAlert[] {
       alert.mitreTechnique,
       alert.mitreId,
       alert.severity,
-      ...(alert.kqlQuery ? [alert.kqlQuery] : []),
-      ...alert.investigationSteps,
-      ...alert.responseActions,
-      alert.falsePositiveGuidance,
-    ]
-      .join(" ")
-      .toLowerCase();
+    ];
 
-    return terms.every((term) => searchableText.includes(term));
+    const searchableText = fields.join(" ").toLowerCase();
+
+    return terms.every((term) => searchableText.indexOf(term) !== -1);
   });
 }

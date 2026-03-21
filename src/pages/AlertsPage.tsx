@@ -264,10 +264,10 @@ const AlertsPage = () => {
 };
 
 const severityButtonStyles: Record<string, string> = {
-  critical: "bg-destructive/20 text-destructive border-destructive/30",
-  high: "bg-warning/20 text-warning border-warning/30",
-  medium: "bg-accent/20 text-accent border-accent/30",
-  low: "bg-muted text-muted-foreground border-muted-foreground/30",
+  critical: "bg-destructive/15 text-destructive border-destructive/25",
+  high: "bg-warning/15 text-warning border-warning/25",
+  medium: "bg-accent/15 text-accent border-accent/25",
+  low: "bg-muted text-muted-foreground border-muted-foreground/25",
   informational: "bg-secondary text-secondary-foreground border-border",
 };
 
