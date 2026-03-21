@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { XDR_ALERTS, type XdrAlert } from "@/lib/xdrAlerts";
+import KqlHighlighter from "@/components/alerts/KqlHighlighter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
