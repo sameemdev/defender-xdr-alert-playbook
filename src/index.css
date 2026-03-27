@@ -6,53 +6,53 @@
 
 @layer base {
   :root {
-    --background: 220 15% 24%;
-    --foreground: 216 16% 85%;
+    --background: 220 20% 97%;
+    --foreground: 222 25% 18%;
 
-    --card: 220 14% 28%;
-    --card-foreground: 216 16% 85%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 18%;
 
-    --popover: 220 14% 28%;
-    --popover-foreground: 216 16% 85%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 18%;
 
-    --primary: 213 72% 56%;
+    --primary: 217 72% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 12% 32%;
-    --secondary-foreground: 216 12% 70%;
+    --secondary: 220 16% 93%;
+    --secondary-foreground: 222 20% 38%;
 
-    --muted: 220 11% 30%;
-    --muted-foreground: 215 10% 55%;
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 10% 48%;
 
-    --accent: 199 55% 50%;
+    --accent: 200 65% 44%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 4 55% 52%;
+    --destructive: 0 65% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 38 68% 50%;
-    --warning-foreground: 0 0% 10%;
+    --warning: 36 80% 48%;
+    --warning-foreground: 0 0% 100%;
 
-    --success: 152 45% 46%;
+    --success: 152 50% 40%;
     --success-foreground: 0 0% 100%;
 
-    --border: 220 10% 34%;
-    --input: 220 10% 34%;
-    --ring: 213 72% 56%;
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
+    --ring: 217 72% 48%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
     --font-mono: 'JetBrains Mono', monospace;
     --font-sans: 'Inter', sans-serif;
 
-    --sidebar-background: 220 14% 28%;
-    --sidebar-foreground: 216 12% 70%;
-    --sidebar-primary: 213 72% 56%;
+    --sidebar-background: 222 25% 18%;
+    --sidebar-foreground: 220 14% 80%;
+    --sidebar-primary: 217 72% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 11% 30%;
-    --sidebar-accent-foreground: 216 12% 70%;
-    --sidebar-border: 220 10% 34%;
-    --sidebar-ring: 213 72% 56%;
+    --sidebar-accent: 222 22% 24%;
+    --sidebar-accent-foreground: 220 14% 80%;
+    --sidebar-border: 222 18% 28%;
+    --sidebar-ring: 217 72% 48%;
   }
 }
 
@@ -62,11 +62,17 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
   }
 
   code, pre, .font-mono {
     font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  .card-elevated {
+    @apply bg-card border border-border rounded-xl shadow-sm;
   }
 }
