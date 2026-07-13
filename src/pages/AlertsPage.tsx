@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { XDR_ALERTS, XDR_COMPONENTS, ALERT_CATEGORIES, searchAlerts, type XdrAlert, type XdrComponent } from "@/lib/xdrAlerts";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,7 @@ import AlertDetailView from "@/components/alerts/AlertDetailView";
 import AlertListItem from "@/components/alerts/AlertListItem";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
-  Shield, Search, X, Filter, ChevronUp,
+  Shield, Search, X, Filter, ChevronUp, ShieldAlert,
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 30;
@@ -101,11 +102,16 @@ const AlertsPage = () => {
                 </p>
               </div>
             </div>
-            {selectedAlert && (
-              <button onClick={() => setSelectedAlert(null)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
-                <X className="h-3.5 w-3.5" /> Close
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <Link to="/cve" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
+                <ShieldAlert className="h-3.5 w-3.5" /> CVE Intel
+              </Link>
+              {selectedAlert && (
+                <button onClick={() => setSelectedAlert(null)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
+                  <X className="h-3.5 w-3.5" /> Close
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
