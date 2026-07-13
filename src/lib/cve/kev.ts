@@ -3,7 +3,7 @@ import type { CveReport } from "./types";
 // CISA's own endpoint does not send CORS headers, so we use community mirrors
 // of the exact same JSON (updated from the CISA feed). Kept in fallback order.
 const KEV_URLS = [
-  "https://raw.githubusercontent.com/Ostorlab/KEV/main/kev.json",
+  "https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json",
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
 ];
 
