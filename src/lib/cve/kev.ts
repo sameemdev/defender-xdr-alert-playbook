@@ -1,6 +1,11 @@
 import type { CveReport } from "./types";
 
-const KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
+// CISA's own endpoint does not send CORS headers, so we use community mirrors
+// of the exact same JSON (updated from the CISA feed). Kept in fallback order.
+const KEV_URLS = [
+  "https://raw.githubusercontent.com/Ostorlab/KEV/main/kev.json",
+  "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+];
 
 interface KevEntry {
   cveID: string;
@@ -21,12 +26,21 @@ let kevPromise: Promise<Map<string, KevEntry>> | null = null;
 export async function loadKev(): Promise<Map<string, KevEntry>> {
   if (kevCache) return kevCache;
   if (kevPromise) return kevPromise;
-  kevPromise = fetch(KEV_URL)
-    .then((r) => {
-      if (!r.ok) throw new Error(`KEV feed HTTP ${r.status}`);
-      return r.json();
-    })
-    .then((data: { vulnerabilities: KevEntry[] }) => {
+  kevPromise = (async () => {
+    let lastErr: unknown = null;
+    for (const url of KEV_URLS) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`KEV feed HTTP ${r.status}`);
+        const data: { vulnerabilities: KevEntry[] } = await r.json();
+        return data;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error("KEV feed unreachable");
+  })()
+    .then((data) => {
       const map = new Map<string, KevEntry>();
       for (const v of data.vulnerabilities || []) {
         map.set(v.cveID.toUpperCase(), v);
