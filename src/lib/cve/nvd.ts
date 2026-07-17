@@ -227,17 +227,12 @@ export async function fetchNvdCve(cveId: string): Promise<CveReport> {
   return parseNvdItem(items[0]);
 }
 
-function isoNoMs(d: Date): string {
-  // NVD requires ISO-8601 without milliseconds
-  return d.toISOString().split(".")[0] + "Z".replace("Z", "") + "Z";
-}
-
 export async function fetchRecentNvdCves(days = 7, resultsPerPage = 100): Promise<CveReport[]> {
   const end = new Date();
   const start = new Date(end.getTime() - days * 24 * 3600 * 1000);
   const params = new URLSearchParams({
-    pubStartDate: isoNoMs(start),
-    pubEndDate: isoNoMs(end),
+    pubStartDate: start.toISOString(),
+    pubEndDate: end.toISOString(),
     resultsPerPage: String(resultsPerPage),
   });
   const res = await fetch(`${NVD_URL}?${params.toString()}`);
