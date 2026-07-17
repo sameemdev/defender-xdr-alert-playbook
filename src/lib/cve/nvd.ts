@@ -153,18 +153,7 @@ function classifyReferences(refs: { url: string; tags?: string[] }[]): {
   return { vendorAdvisories, exploits };
 }
 
-export async function fetchNvdCve(cveId: string): Promise<CveReport> {
-  const res = await fetch(`${NVD_URL}?cveId=${encodeURIComponent(cveId)}`);
-  if (!res.ok) {
-    if (res.status === 404) throw new Error(`${cveId} not found in NVD`);
-    if (res.status === 403 || res.status === 429) throw new Error(`NVD rate limit hit — retry in a moment`);
-    throw new Error(`NVD API error ${res.status}`);
-  }
-  const data = await res.json();
-  const items: NvdCveItem[] = data.vulnerabilities || [];
-  if (!items.length) throw new Error(`${cveId} not found in NVD`);
-  const item = items[0];
-
+function parseNvdItem(item: NvdCveItem): CveReport {
   const desc = item.cve.descriptions?.find((d) => d.lang === "en")?.value || "No description available.";
 
   const metric =
@@ -223,4 +212,40 @@ export async function fetchNvdCve(cveId: string): Promise<CveReport> {
     exploitLinks: exploits,
     sources: ["NVD", "MITRE"],
   };
+}
+
+export async function fetchNvdCve(cveId: string): Promise<CveReport> {
+  const res = await fetch(`${NVD_URL}?cveId=${encodeURIComponent(cveId)}`);
+  if (!res.ok) {
+    if (res.status === 404) throw new Error(`${cveId} not found in NVD`);
+    if (res.status === 403 || res.status === 429) throw new Error(`NVD rate limit hit — retry in a moment`);
+    throw new Error(`NVD API error ${res.status}`);
+  }
+  const data = await res.json();
+  const items: NvdCveItem[] = data.vulnerabilities || [];
+  if (!items.length) throw new Error(`${cveId} not found in NVD`);
+  return parseNvdItem(items[0]);
+}
+
+function isoNoMs(d: Date): string {
+  // NVD requires ISO-8601 without milliseconds
+  return d.toISOString().split(".")[0] + "Z".replace("Z", "") + "Z";
+}
+
+export async function fetchRecentNvdCves(days = 7, resultsPerPage = 100): Promise<CveReport[]> {
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 3600 * 1000);
+  const params = new URLSearchParams({
+    pubStartDate: isoNoMs(start),
+    pubEndDate: isoNoMs(end),
+    resultsPerPage: String(resultsPerPage),
+  });
+  const res = await fetch(`${NVD_URL}?${params.toString()}`);
+  if (!res.ok) {
+    if (res.status === 403 || res.status === 429) throw new Error("NVD rate limit hit — retry shortly");
+    throw new Error(`NVD API error ${res.status}`);
+  }
+  const data = await res.json();
+  const items: NvdCveItem[] = data.vulnerabilities || [];
+  return items.map(parseNvdItem).sort((a, b) => (b.published || "").localeCompare(a.published || ""));
 }
