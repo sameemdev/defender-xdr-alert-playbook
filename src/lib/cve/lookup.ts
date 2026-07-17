@@ -1,4 +1,4 @@
-import { fetchNvdCve } from "./nvd";
+import { fetchNvdCve, fetchRecentNvdCves } from "./nvd";
 import { loadKev, attachKev } from "./kev";
 import type { CveReport } from "./types";
 
@@ -29,4 +29,16 @@ export function exploitMaturity(r: CveReport): string {
   if (r.exploitLinks.some((e) => e.source === "Metasploit")) return "Weaponized";
   if (r.exploitLinks.length) return "PoC available";
   return "None known";
+}
+
+export async function fetchRecentCves(days = 7): Promise<CveReport[]> {
+  const [reports, kevMap] = await Promise.all([
+    fetchRecentNvdCves(days),
+    loadKev().catch(() => null),
+  ]);
+  if (kevMap) {
+    for (const r of reports) attachKev(r, kevMap.get(r.id));
+  }
+  for (const r of reports) cache.set(r.id, { at: Date.now(), report: r });
+  return reports;
 }

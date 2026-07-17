@@ -2,32 +2,37 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { lookupCve, riskScore } from "@/lib/cve/lookup";
+import { lookupCve, riskScore, fetchRecentCves } from "@/lib/cve/lookup";
 import { normalizeCveId, CVE_ID_REGEX } from "@/lib/cve/types";
 import type { CveReport } from "@/lib/cve/types";
 import { getTracked, addTracked, removeTracked, isTracked } from "@/lib/cve/tracked";
 import { exportCsv, exportJson, exportPdf } from "@/lib/cve/exports";
 import CveReportCard from "@/components/cve/CveReportCard";
-import { Shield, Search, ShieldAlert, Loader2, FileDown, Upload, Bug, ArrowLeft, ListChecks, Activity, AlertCircle } from "lucide-react";
+import AdvisoriesView from "@/components/advisories/AdvisoriesView";
+import { Shield, Search, ShieldAlert, Loader2, FileDown, Upload, Bug, ArrowLeft, ListChecks, Activity, AlertCircle, Clock, Rss, RefreshCw } from "lucide-react";
 
 type Sort = "risk" | "cvss" | "published" | "modified";
 type SeverityFilter = "ALL" | "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 type PatchFilter = "ALL" | "PATCH" | "NOPATCH";
+type Tab = "recent" | "search" | "advisories";
 
 const CvePage = () => {
+  const [tab, setTab] = useState<Tab>("recent");
   const [input, setInput] = useState("");
   const [reports, setReports] = useState<CveReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ id: string; msg: string }[]>([]);
-  const [sort, setSort] = useState<Sort>("risk");
+  const [sort, setSort] = useState<Sort>("published");
   const [sevFilter, setSevFilter] = useState<SeverityFilter>("ALL");
   const [patchFilter, setPatchFilter] = useState<PatchFilter>("ALL");
   const [kevOnly, setKevOnly] = useState(false);
   const [trackedIds, setTrackedIds] = useState<string[]>([]);
+  const [recentDays, setRecentDays] = useState<7 | 14 | 30>(7);
+  const [recentLoaded, setRecentLoaded] = useState(false);
 
   useEffect(() => { setTrackedIds(getTracked()); }, []);
 
-  // Auto-load tracked CVEs once on mount
+  // Auto-load tracked CVEs once on mount (they merge into the report list)
   useEffect(() => {
     const ids = getTracked();
     if (!ids.length) return;
@@ -76,6 +81,31 @@ const CvePage = () => {
     }
   }, []);
 
+  const loadRecent = useCallback(async (days: 7 | 14 | 30, force = false) => {
+    setLoading(true);
+    try {
+      const recent = await fetchRecentCves(days);
+      setReports((prev) => {
+        const map = new Map<string, CveReport>();
+        for (const p of prev) map.set(p.id, p);
+        for (const r of recent) map.set(r.id, r);
+        return Array.from(map.values());
+      });
+      setRecentLoaded(true);
+      if (force) toast({ title: `Loaded ${recent.length} CVEs from the last ${days} days` });
+    } catch (e) {
+      toast({ title: "Failed to load recent CVEs", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Auto-load recent CVEs the first time the Recent tab is visible
+  useEffect(() => {
+    if (tab === "recent" && !recentLoaded) void loadRecent(recentDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const handleCsvUpload = async (file: File) => {
     const text = await file.text();
     // pull anything matching a CVE pattern
@@ -112,6 +142,10 @@ const CvePage = () => {
 
   const filtered = useMemo(() => {
     let r = reports;
+    if (tab === "recent") {
+      const cutoff = Date.now() - recentDays * 24 * 3600 * 1000;
+      r = r.filter((x) => x.published && Date.parse(x.published) >= cutoff);
+    }
     if (sevFilter !== "ALL") r = r.filter((x) => (x.cvss?.severity || "").toUpperCase() === sevFilter);
     if (patchFilter === "PATCH") r = r.filter((x) => x.vendorAdvisories.length > 0);
     if (patchFilter === "NOPATCH") r = r.filter((x) => x.vendorAdvisories.length === 0);
@@ -125,16 +159,18 @@ const CvePage = () => {
       }
     });
     return r;
-  }, [reports, sort, sevFilter, patchFilter, kevOnly]);
+  }, [reports, sort, sevFilter, patchFilter, kevOnly, tab, recentDays]);
 
   const stats = useMemo(() => {
-    const total = reports.length;
-    const critical = reports.filter((r) => (r.cvss?.severity || "").toUpperCase() === "CRITICAL").length;
-    const kev = reports.filter((r) => !!r.kev).length;
-    const noPatch = reports.filter((r) => r.vendorAdvisories.length === 0).length;
-    const poc = reports.filter((r) => r.exploitLinks.length > 0).length;
+    // Stats reflect whatever view the user is looking at
+    const scope = filtered;
+    const total = scope.length;
+    const critical = scope.filter((r) => (r.cvss?.severity || "").toUpperCase() === "CRITICAL").length;
+    const kev = scope.filter((r) => !!r.kev).length;
+    const noPatch = scope.filter((r) => r.vendorAdvisories.length === 0).length;
+    const poc = scope.filter((r) => r.exploitLinks.length > 0).length;
     return { total, critical, kev, noPatch, poc };
-  }, [reports]);
+  }, [filtered]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,26 +190,66 @@ const CvePage = () => {
                 <h1 className="text-lg font-bold tracking-tight text-foreground font-mono">
                   CVE <span className="text-primary">INTEL</span>
                 </h1>
-                <p className="text-[11px] text-muted-foreground">SOC vulnerability assessment · NVD + CISA KEV</p>
+                <p className="text-[11px] text-muted-foreground">SOC vulnerability intel · NVD · CISA KEV · vendor advisories</p>
               </div>
             </div>
             <Link to="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" /> XDR Alerts
             </Link>
           </div>
+          {/* Top-level tabs */}
+          <div className="flex items-center gap-1 mt-4">
+            {([
+              { id: "recent", label: "Recent CVEs", icon: <Clock className="h-3.5 w-3.5" /> },
+              { id: "search", label: "Search & Tracked", icon: <Search className="h-3.5 w-3.5" /> },
+              { id: "advisories", label: "Vendor Advisories", icon: <Rss className="h-3.5 w-3.5" /> },
+            ] as { id: Tab; label: string; icon: React.ReactNode }[]).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  tab === t.id ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted border border-transparent"
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
         </header>
 
         <div className="px-6 py-6 space-y-5">
+          {tab === "advisories" ? (
+            <AdvisoriesView />
+          ) : (
+            <>
           {/* Dashboard stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-            <Stat label="Tracked" value={stats.total} icon={<ListChecks className="h-3.5 w-3.5" />} />
+            <Stat label={tab === "recent" ? `Last ${recentDays}d` : "Tracked"} value={stats.total} icon={<ListChecks className="h-3.5 w-3.5" />} />
             <Stat label="Critical" value={stats.critical} tone="destructive" icon={<AlertCircle className="h-3.5 w-3.5" />} />
             <Stat label="CISA KEV" value={stats.kev} tone="destructive" icon={<ShieldAlert className="h-3.5 w-3.5" />} />
             <Stat label="No vendor patch" value={stats.noPatch} tone="warning" icon={<Shield className="h-3.5 w-3.5" />} />
             <Stat label="Public PoC" value={stats.poc} tone="warning" icon={<Bug className="h-3.5 w-3.5" />} />
           </div>
 
-          {/* Search */}
+          {tab === "recent" && (
+            <div className="card-elevated p-3 flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold mr-1">Window</span>
+              {([7, 14, 30] as const).map((d) => (
+                <button key={d} onClick={() => { setRecentDays(d); void loadRecent(d, true); }}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-mono uppercase border transition-colors ${
+                    recentDays === d ? "border-primary/40 bg-primary/10 text-primary font-bold" : "border-transparent text-muted-foreground hover:bg-muted"
+                  }`}>Last {d}d</button>
+              ))}
+              <button onClick={() => void loadRecent(recentDays, true)} disabled={loading}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md border border-border text-[10px] font-mono uppercase text-muted-foreground hover:bg-muted disabled:opacity-50">
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Refresh
+              </button>
+            </div>
+          )}
+
+          {/* Search — only on search tab */}
+          {tab === "search" && (
           <form onSubmit={onSubmit} className="card-elevated p-4 space-y-3">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -213,9 +289,10 @@ const CvePage = () => {
               </span>
             </div>
           </form>
+          )}
 
           {/* Filters */}
-          {reports.length > 0 && (
+          {filtered.length > 0 && (
             <div className="card-elevated p-3 flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold mr-1">Sort</span>
               {(["risk", "cvss", "published", "modified"] as Sort[]).map((s) => (
@@ -248,7 +325,7 @@ const CvePage = () => {
                 <ShieldAlert className="h-3 w-3" /> KEV only
               </button>
               <span className="text-[11px] text-muted-foreground font-mono ml-auto tabular-nums">
-                {filtered.length} / {reports.length}
+                {filtered.length}
               </span>
             </div>
           )}
@@ -270,13 +347,22 @@ const CvePage = () => {
                 <Activity className="h-7 w-7 text-muted-foreground/40" />
               </div>
               <p className="text-sm text-muted-foreground">
-                {reports.length === 0
+                {tab === "recent"
+                  ? "No recent CVEs loaded yet."
+                  : reports.length === 0
                   ? "Enter a CVE ID above (e.g. CVE-2024-3400) or import a list."
                   : "No CVEs match current filters."}
               </p>
               <p className="text-[11px] text-muted-foreground mt-2">
                 Data: NVD REST API 2.0 · CISA KEV catalog (live)
               </p>
+            </div>
+          )}
+
+          {loading && filtered.length === 0 && (
+            <div className="text-center py-16 card-elevated">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Fetching latest CVEs from NVD…</p>
             </div>
           )}
 
@@ -292,6 +378,8 @@ const CvePage = () => {
               />
             ))}
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>
