@@ -81,6 +81,69 @@ function productBlurb(r: CveReport): string {
   return first ? first.slice(0, 120) : "Affected software";
 }
 
+// Vendor/product → one-line plain-English description of what the software does.
+const PRODUCT_DESCRIPTIONS: { match: RegExp; desc: string }[] = [
+  { match: /windows/i, desc: "Microsoft's desktop and server operating system used by billions of endpoints worldwide." },
+  { match: /exchange/i, desc: "Microsoft's on-premises email, calendar, and collaboration server used by enterprises." },
+  { match: /sharepoint/i, desc: "Microsoft's document management and intranet collaboration platform." },
+  { match: /office|word|excel|outlook/i, desc: "Microsoft Office productivity suite used on corporate endpoints." },
+  { match: /azure|entra/i, desc: "Microsoft's cloud platform and identity service for enterprise workloads." },
+  { match: /cisco.*ios|ios.?xe|ios.?xr/i, desc: "Cisco IOS — the operating system running on Cisco routers and switches." },
+  { match: /cisco/i, desc: "Cisco enterprise networking, security, or collaboration product." },
+  { match: /fortigate|fortios|fortinet/i, desc: "Fortinet FortiGate next-generation firewall / SSL-VPN appliance." },
+  { match: /palo.?alto|pan-os|globalprotect/i, desc: "Palo Alto Networks firewall (PAN-OS) / GlobalProtect VPN appliance." },
+  { match: /vcenter|esxi|vmware/i, desc: "VMware virtualization platform running enterprise data-center workloads." },
+  { match: /citrix|netscaler|adc/i, desc: "Citrix / NetScaler application delivery controller and remote-access gateway." },
+  { match: /oracle.*database|mysql/i, desc: "Enterprise relational database engine." },
+  { match: /weblogic/i, desc: "Oracle WebLogic Java application server hosting enterprise web apps." },
+  { match: /oracle/i, desc: "Oracle enterprise software product (database, middleware, or business app)." },
+  { match: /adobe.*acrobat|reader/i, desc: "Adobe Acrobat/Reader — PDF viewer widely deployed on user endpoints." },
+  { match: /adobe/i, desc: "Adobe creative or document application installed on end-user machines." },
+  { match: /apache.*struts/i, desc: "Apache Struts — Java MVC web-application framework." },
+  { match: /apache.*tomcat/i, desc: "Apache Tomcat — Java servlet container running web applications." },
+  { match: /apache/i, desc: "Apache open-source web server / framework component." },
+  { match: /nginx/i, desc: "NGINX high-performance web server and reverse proxy." },
+  { match: /wordpress/i, desc: "WordPress content management system powering a large share of the public web." },
+  { match: /drupal/i, desc: "Drupal open-source content management system." },
+  { match: /joomla/i, desc: "Joomla open-source content management system." },
+  { match: /linux.*kernel|kernel/i, desc: "The Linux kernel — core of every Linux-based server and appliance." },
+  { match: /android/i, desc: "Google Android — mobile operating system running on billions of devices." },
+  { match: /chrome|chromium/i, desc: "Chromium-based web browser used on desktops and mobile devices." },
+  { match: /firefox|thunderbird|mozilla/i, desc: "Mozilla end-user application (browser or mail client)." },
+  { match: /safari|webkit/i, desc: "Apple Safari / WebKit browser engine used across Apple platforms." },
+  { match: /macos|mac.?os/i, desc: "Apple macOS desktop operating system." },
+  { match: /iphone|ios(?!.?xe)|ipados/i, desc: "Apple iOS / iPadOS mobile operating system." },
+  { match: /openssl/i, desc: "OpenSSL — the TLS/crypto library that secures most internet traffic." },
+  { match: /openssh/i, desc: "OpenSSH — the standard SSH remote-administration suite for Unix systems." },
+  { match: /jenkins/i, desc: "Jenkins CI/CD automation server used in software delivery pipelines." },
+  { match: /gitlab/i, desc: "GitLab source-code hosting and DevOps platform." },
+  { match: /github/i, desc: "GitHub source-code hosting platform." },
+  { match: /jira|confluence|bitbucket|atlassian/i, desc: "Atlassian team-collaboration / issue-tracking tool." },
+  { match: /sap/i, desc: "SAP enterprise business application (ERP/CRM/HR/finance)." },
+  { match: /ibm/i, desc: "IBM enterprise software product (middleware, mainframe, or security)." },
+  { match: /docker|kubernetes|containerd/i, desc: "Container runtime / orchestration platform used to run cloud workloads." },
+  { match: /postgres|postgresql/i, desc: "PostgreSQL open-source relational database." },
+  { match: /redis/i, desc: "Redis in-memory data store used as cache and message broker." },
+  { match: /elastic|kibana/i, desc: "Elastic Stack — search, logging, and observability platform." },
+  { match: /wireshark/i, desc: "Wireshark — the standard open-source network protocol analyzer." },
+  { match: /zoom|teams|slack/i, desc: "Enterprise messaging / video-conferencing client." },
+  { match: /router|switch|firewall|vpn/i, desc: "Network infrastructure device sitting at the perimeter or core of the network." },
+];
+
+/** Plain-English one-liner describing what the affected product actually is. */
+export function describeProduct(r: CveReport): string | null {
+  const a = r.affected[0];
+  const hay = a ? `${a.vendor} ${a.product}` : r.description;
+  const hit = PRODUCT_DESCRIPTIONS.find((p) => p.match.test(hay));
+  if (hit) return hit.desc;
+  if (a) {
+    const vendor = cap(a.vendor.replace(/_/g, " "));
+    const product = a.product.replace(/_/g, " ");
+    return `${vendor} ${product} — third-party software component deployed in the affected environment.`;
+  }
+  return null;
+}
+
 function weaknessBlurb(r: CveReport): string {
   const labels = r.cwes
     .map((c) => CWE_LABELS[c.id])
