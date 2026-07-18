@@ -1,5 +1,6 @@
 import type { CveReport } from "@/lib/cve/types";
 import { exploitMaturity } from "@/lib/cve/lookup";
+import { summarizeCve } from "@/lib/cve/summarize";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink, ShieldAlert, AlertTriangle, Bug, FileWarning, X, RefreshCw } from "lucide-react";
 
@@ -63,8 +64,19 @@ export default function CveReportCard({ report, tracked, onToggleTrack, onRefres
         </div>
       </div>
 
-      {/* Description */}
-      <p className="text-sm text-foreground leading-relaxed">{report.description}</p>
+      {/* Plain-English summary — what it is + how it's vulnerable */}
+      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="text-[10px] font-mono uppercase tracking-wider text-primary/80 font-semibold mb-1">In plain English</div>
+        <p className="text-sm text-foreground leading-relaxed">{summarizeCve(report)}</p>
+      </div>
+
+      {/* Full NVD description — collapsed by default */}
+      <details className="text-sm">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground text-[10px] font-mono uppercase tracking-wider">
+          Full NVD description
+        </summary>
+        <p className="text-sm text-foreground leading-relaxed mt-2">{report.description}</p>
+      </details>
 
       {/* CVSS grid */}
       {report.cvss && (
