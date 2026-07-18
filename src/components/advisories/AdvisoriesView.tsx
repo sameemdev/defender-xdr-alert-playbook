@@ -30,7 +30,7 @@ export default function AdvisoriesView() {
   const [errors, setErrors] = useState<{ source: { name: string; rss: string }; msg: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
-  const [cat, setCat] = useState<string>("Vendor");
+  const [cat, setCat] = useState<string>("ALL");
   const [sourceId, setSourceId] = useState<string>("ALL");
   const [visible, setVisible] = useState(40);
 
